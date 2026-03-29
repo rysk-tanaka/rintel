@@ -1,0 +1,42 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+  <defs>
+    <linearGradient id="bg" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#1a1a2e"/>
+      <stop offset="100%" style="stop-color:#16213e"/>
+    </linearGradient>
+    <linearGradient id="accent" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#4a9eff"/>
+      <stop offset="100%" style="stop-color:#7c3aed"/>
+    </linearGradient>
+  </defs>
+  <!-- Rounded square background -->
+  <rect width="512" height="512" rx="108" fill="url(#bg)"/>
+  <!-- Brain/circuit pattern - simplified neural network -->
+  <!-- Central node -->
+  <circle cx="256" cy="220" r="42" fill="url(#accent)" opacity="0.9"/>
+  <!-- Outer nodes -->
+  <circle cx="150" cy="140" r="20" fill="url(#accent)" opacity="0.6"/>
+  <circle cx="362" cy="140" r="20" fill="url(#accent)" opacity="0.6"/>
+  <circle cx="120" cy="260" r="20" fill="url(#accent)" opacity="0.6"/>
+  <circle cx="392" cy="260" r="20" fill="url(#accent)" opacity="0.6"/>
+  <circle cx="170" cy="340" r="20" fill="url(#accent)" opacity="0.6"/>
+  <circle cx="342" cy="340" r="20" fill="url(#accent)" opacity="0.6"/>
+  <!-- Connection lines -->
+  <line x1="150" y1="140" x2="256" y2="220" stroke="url(#accent)" stroke-width="3" opacity="0.4"/>
+  <line x1="362" y1="140" x2="256" y2="220" stroke="url(#accent)" stroke-width="3" opacity="0.4"/>
+  <line x1="120" y1="260" x2="256" y2="220" stroke="url(#accent)" stroke-width="3" opacity="0.4"/>
+  <line x1="392" y1="260" x2="256" y2="220" stroke="url(#accent)" stroke-width="3" opacity="0.4"/>
+  <line x1="170" y1="340" x2="256" y2="220" stroke="url(#accent)" stroke-width="3" opacity="0.4"/>
+  <line x1="342" y1="340" x2="256" y2="220" stroke="url(#accent)" stroke-width="3" opacity="0.4"/>
+  <line x1="150" y1="140" x2="120" y2="260" stroke="url(#accent)" stroke-width="2" opacity="0.25"/>
+  <line x1="362" y1="140" x2="392" y2="260" stroke="url(#accent)" stroke-width="2" opacity="0.25"/>
+  <line x1="120" y1="260" x2="170" y2="340" stroke="url(#accent)" stroke-width="2" opacity="0.25"/>
+  <line x1="392" y1="260" x2="342" y2="340" stroke="url(#accent)" stroke-width="2" opacity="0.25"/>
+  <!-- Chat bubble at bottom -->
+  <path d="M180 380 Q180 360 200 360 L312 360 Q332 360 332 380 L332 420 Q332 440 312 440 L230 440 L210 460 L210 440 L200 440 Q180 440 180 420 Z"
+        fill="white" opacity="0.9"/>
+  <!-- Dots in chat bubble -->
+  <circle cx="230" cy="400" r="8" fill="url(#accent)" opacity="0.8"/>
+  <circle cx="256" cy="400" r="8" fill="url(#accent)" opacity="0.6"/>
+  <circle cx="282" cy="400" r="8" fill="url(#accent)" opacity="0.4"/>
+</svg>

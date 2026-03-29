@@ -1,0 +1,18 @@
+[package]
+name = "rintel-cli"
+version.workspace = true
+edition.workspace = true
+
+[[bin]]
+name = "rintel"
+path = "src/main.rs"
+
+[dependencies]
+ai-provider.workspace = true
+ai-session.workspace = true
+anyhow.workspace = true
+chrono.workspace = true
+clap = { version = "4", features = ["derive"] }
+colored = "3"
+rustyline = "15"
+uuid.workspace = true
