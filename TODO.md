@@ -7,6 +7,7 @@
 - [x] Phase 3: 対話チャット REPL（`rintel chat`）
 - [x] Phase 4: マルチターン（`ai_generate_with_history` FFI）
 - [x] Phase 5: GUI（Tauri v2 + React）
+- [x] Phase 6: Claude Code セッション閲覧（`~/.claude/projects/` の JSONL ビューア）
 
 ## 未着手
 

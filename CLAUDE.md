@@ -70,12 +70,23 @@ pnpm exec tsc --noEmit -p tsconfig.app.json  # TypeScript 型チェック
 | `send_message` | `spawn_blocking` で `session.send()` を呼ぶ |
 | `list_sessions` / `create_session` / `load_session` / `delete_session` / `cleanup_sessions` | SessionManager ラッパー |
 | `add_file_context` | ファイル読み込み → セッションに追加 |
+| `list_claude_projects` / `list_claude_sessions` / `get_claude_session` | Claude Code セッション閲覧（読み取り専用、AppState 不要） |
 
 ## GUI フロントエンド（`apps/gui/src/`）
 
-- `invoke()` 呼び出しは `hooks/useAi.ts` と `hooks/useSessions.ts` に集約
+- `invoke()` 呼び出しは `hooks/useAi.ts`、`hooks/useSessions.ts`、`hooks/useClaudeCode.ts` に集約
 - 型定義は `types.ts` で Rust struct と手動同期
 - 時刻表示は絶対時刻を使用（`formatTime.ts`）
+- App.tsx のタブバーで Chat / Claude Code ビューを切り替え
+- Claude Code ビューアは `components/claude-code/` に格納（3ペイン構成: プロジェクト → セッション → 会話）
+
+### Claude Code セッション閲覧
+
+- `~/.claude/projects/` 配下の JSONL セッションファイルを読み取り専用で表示
+- パスデコード: ディレクトリ名 `-Users-rysk-myapp` → `/Users/rysk/myapp`（ハイフン含むパスは誤変換の可能性あり、表示用途のみ）
+- JSONL フィルタ: `type == "user" | "assistant"` のみ、`isCompactSummary` / `isSidechain` はスキップ
+- コマンドは `State<AppState>` 不要（ファイルシステム読み取りのみ）
+- `project_dir` / `session_id` パラメータにはパストラバーサル対策あり
 
 ## セッション
 

@@ -19,6 +19,9 @@ pub fn run() {
             commands::session::delete_session,
             commands::session::cleanup_sessions,
             commands::file::add_file_context,
+            commands::claude_code::list_claude_projects,
+            commands::claude_code::list_claude_sessions,
+            commands::claude_code::get_claude_session,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

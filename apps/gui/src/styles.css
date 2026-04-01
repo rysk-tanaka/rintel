@@ -289,6 +289,201 @@ body {
 	cursor: not-allowed;
 }
 
+/* Tab bar */
+.tab-bar {
+	display: flex;
+	background: var(--bg-sidebar);
+	border-bottom: 1px solid var(--border);
+	padding: 0 8px;
+}
+
+.tab-btn {
+	padding: 8px 16px;
+	background: none;
+	border: none;
+	border-bottom: 2px solid transparent;
+	color: var(--text-dim);
+	cursor: pointer;
+	font-size: var(--font-size);
+}
+
+.tab-btn:hover {
+	color: var(--text);
+}
+
+.tab-btn.active {
+	color: var(--accent);
+	border-bottom-color: var(--accent);
+}
+
+/* Claude Code viewer */
+.cc-view {
+	display: flex;
+	flex: 1;
+	overflow: hidden;
+}
+
+.cc-project-list,
+.cc-session-list {
+	width: 220px;
+	min-width: 220px;
+	background: var(--bg-sidebar);
+	border-right: 1px solid var(--border);
+	display: flex;
+	flex-direction: column;
+	overflow: hidden;
+}
+
+.cc-session-list {
+	width: 260px;
+	min-width: 260px;
+}
+
+.cc-panel-header {
+	padding: 10px 12px;
+	font-size: 12px;
+	color: var(--text-dim);
+	border-bottom: 1px solid var(--border);
+	text-transform: uppercase;
+	letter-spacing: 0.05em;
+}
+
+.cc-list {
+	flex: 1;
+	overflow-y: auto;
+	display: flex;
+	flex-direction: column;
+	gap: 1px;
+	padding: 4px;
+}
+
+.cc-list-item {
+	display: flex;
+	flex-direction: column;
+	padding: 8px 10px;
+	background: none;
+	border: none;
+	border-radius: var(--radius);
+	color: var(--text);
+	cursor: pointer;
+	text-align: left;
+	font-size: var(--font-size);
+}
+
+.cc-list-item:hover {
+	background: var(--bg-hover);
+}
+
+.cc-list-item.active {
+	background: var(--bg-hover);
+}
+
+.cc-item-title {
+	font-size: 13px;
+	white-space: nowrap;
+	overflow: hidden;
+	text-overflow: ellipsis;
+}
+
+.cc-item-meta {
+	font-size: 11px;
+	color: var(--text-dim);
+	margin-top: 2px;
+}
+
+.cc-main {
+	flex: 1;
+	display: flex;
+	flex-direction: column;
+	overflow: hidden;
+}
+
+.cc-loading {
+	flex: 1;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	color: var(--text-dim);
+}
+
+.cc-empty {
+	padding: 16px;
+	color: var(--text-dim);
+	text-align: center;
+	font-size: 13px;
+}
+
+.cc-conversation {
+	flex: 1;
+	display: flex;
+	flex-direction: column;
+	overflow: hidden;
+}
+
+.cc-conv-header {
+	display: flex;
+	align-items: center;
+	gap: 12px;
+	padding: 10px 16px;
+	border-bottom: 1px solid var(--border);
+}
+
+.cc-conv-title {
+	font-size: 14px;
+	font-weight: 600;
+}
+
+.cc-conv-branch {
+	font-size: 11px;
+	color: var(--text-dim);
+	padding: 2px 8px;
+	background: var(--bg-input);
+	border-radius: 4px;
+}
+
+.cc-messages {
+	flex: 1;
+	overflow-y: auto;
+	padding: 16px;
+	display: flex;
+	flex-direction: column;
+	gap: 12px;
+}
+
+.cc-tool-uses {
+	margin-top: 8px;
+	display: flex;
+	flex-direction: column;
+	gap: 4px;
+}
+
+.cc-tool-use {
+	background: var(--bg-input);
+	border-radius: 4px;
+	font-size: 12px;
+}
+
+.cc-tool-use-summary {
+	padding: 4px 8px;
+	cursor: pointer;
+	color: var(--text-dim);
+}
+
+.cc-tool-use-summary:hover {
+	color: var(--accent);
+}
+
+.cc-tool-use-detail {
+	padding: 8px;
+	font-size: 11px;
+	color: var(--text-dim);
+	white-space: pre-wrap;
+	word-break: break-all;
+	max-height: 200px;
+	overflow-y: auto;
+	border-top: 1px solid var(--border);
+}
+
 /* Status bar */
 .status-bar {
 	padding: 4px 12px;

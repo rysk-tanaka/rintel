@@ -44,7 +44,7 @@ rintel session cleanup            # 期限切れセッション削除
 
 ## GUI
 
-Tauri v2 + React のデスクトップアプリ。セッション一覧・チャット・ファイルコンテキスト追加が可能。
+Tauri v2 + React のデスクトップアプリ。セッション一覧・チャット・ファイルコンテキスト追加に加え、Claude Code のセッション履歴閲覧が可能。
 
 ```bash
 cd apps/gui && pnpm tauri dev
