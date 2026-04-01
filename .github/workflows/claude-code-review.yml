@@ -1,0 +1,20 @@
+name: Claude Code Review
+
+on:
+  pull_request:
+    types: [opened, synchronize, labeled, ready_for_review, reopened]
+
+jobs:
+  claude-review:
+    if: |
+      contains(github.event.pull_request.labels.*.name, 'claude-review')
+    permissions:
+      contents: read
+      pull-requests: write
+      issues: write
+      id-token: write
+    uses: rysk-tanaka/workflows/.github/workflows/claude-code-review.yml@main
+    with:
+      track_progress: ${{ github.event.action != 'labeled' }}
+    secrets:
+      CLAUDE_CODE_OAUTH_TOKEN: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}

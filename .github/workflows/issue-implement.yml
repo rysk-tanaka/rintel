@@ -1,0 +1,43 @@
+name: Issue Implement
+
+on:
+  issues:
+    types: [labeled]
+
+concurrency:
+  group: issue-implement-${{ github.event.issue.number }}
+  cancel-in-progress: false
+
+jobs:
+  implement:
+    if: github.event.label.name == 'claude-implement' && github.event.issue.state == 'open'
+    permissions:
+      contents: write
+      pull-requests: write
+      issues: write
+      id-token: write
+    uses: rysk-tanaka/workflows/.github/workflows/issue-implement.yml@main
+    with:
+      package_manager: none
+      setup_command: "rustup update stable"
+      claude_args: '--max-turns 40 --model claude-opus-4-6 --allowed-tools "Read,Edit,Write,Glob,Grep,Bash(git fetch origin *),Bash(git add *),Bash(git commit *),Bash(git checkout *),Bash(git push origin implement-issue-*),Bash(git status),Bash(git status *),Bash(git diff),Bash(git diff *),Bash(git log *),Bash(gh issue view *),Bash(gh pr create * --body-file *),Bash(gh pr edit * --add-label *),Bash(cargo build),Bash(cargo build *),Bash(cargo test),Bash(cargo test *),Bash(cargo clippy),Bash(cargo clippy *),Bash(cargo fmt),Bash(cargo fmt *)"'
+      prompt: |
+        Issue #${{ github.event.issue.number }} を実装し、PR を作成してください。
+
+        手順:
+        1. `gh issue view ${{ github.event.issue.number }}` で Issue の要件を確認する
+        2. 作業ブランチを作成する: `git fetch origin implement-issue-${{ github.event.issue.number }}:implement-issue-${{ github.event.issue.number }} 2>/dev/null && git checkout implement-issue-${{ github.event.issue.number }} || git checkout -b implement-issue-${{ github.event.issue.number }}`
+        3. 実装を行う
+        4. `cargo test` を実行してテストを確認する
+        5. `cargo clippy` を実行して lint エラーがないことを確認する
+        6. `cargo fmt` を実行して整形する
+        7. 変更をコミットして `git push origin implement-issue-${{ github.event.issue.number }}` でプッシュする（`-u` フラグ不可）
+        8. PR 本文を `/tmp/pr-body.md` に Write ツールで書き出し（必ず `Closes #${{ github.event.issue.number }}` を含める）、`gh pr create --title "..." --body-file /tmp/pr-body.md` で PR を作成する（`--body` は使用しない）
+        9. `gh pr edit --add-label claude-review` で PR に `claude-review` ラベルを付与する
+
+        要件:
+        - 既存のコーディング規約に従う
+        - コミットメッセージは英語で Conventional Commits 形式、単一行にする（HEREDOC やマルチライン不可）
+        - PR 本文は `.github/pull_request_template.md` のテンプレートに従う（該当しないセクションは省略可）
+    secrets:
+      CLAUDE_CODE_OAUTH_TOKEN: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}

@@ -1,0 +1,35 @@
+name: Release
+
+on:
+  push:
+    branches: [main]
+    paths: ['Cargo.toml']
+  workflow_dispatch:
+
+concurrency:
+  group: auto-release-${{ github.ref }}
+  cancel-in-progress: false
+
+permissions:
+  contents: write
+
+jobs:
+  validate-branch:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Validate branch
+        if: github.ref != 'refs/heads/main'
+        run: |
+          echo "::error::This workflow can only be run from the main branch (current: ${{ github.ref }})"
+          exit 1
+
+  create-release:
+    needs: validate-branch
+    permissions:
+      contents: write
+    uses: rysk-tanaka/workflows/.github/workflows/release-on-version-change.yml@main
+    with:
+      version_source: cargo_toml
+      tag_prefix: v
+      force_released_output: ${{ github.event_name == 'workflow_dispatch' }}
+    secrets: inherit
