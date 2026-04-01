@@ -1,5 +1,11 @@
 # Rintel
 
+[![lint](https://github.com/rysk-tanaka/rintel/actions/workflows/lint.yml/badge.svg)](https://github.com/rysk-tanaka/rintel/actions/workflows/lint.yml)
+[![test](https://github.com/rysk-tanaka/rintel/actions/workflows/test.yml/badge.svg)](https://github.com/rysk-tanaka/rintel/actions/workflows/test.yml)
+[![build](https://github.com/rysk-tanaka/rintel/actions/workflows/build.yml/badge.svg)](https://github.com/rysk-tanaka/rintel/actions/workflows/build.yml)
+[![release](https://img.shields.io/github/v/release/rysk-tanaka/rintel)](https://github.com/rysk-tanaka/rintel/releases/latest)
+[![license](https://badgers.space/github/license/rysk-tanaka/rintel?corner_radius=5)](./LICENSE)
+
 Apple Intelligence（Foundation Models）を活用した AI チャットツール。
 macOS 26+ のオンデバイス AI を Rust から呼び出し、CLI と GUI の両方で対話できる。
 
@@ -93,4 +99,4 @@ cargo test -p ai-provider -p ai-session
 
 ## ライセンス
 
-MIT
+MIT License — © Ryosuke Tanaka
