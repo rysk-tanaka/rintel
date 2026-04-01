@@ -1,0 +1,14 @@
+exclude: ^THIRD_PARTY_LICENSES\.html$
+
+repos:
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v6.0.0
+    hooks:
+      - id: end-of-file-fixer
+        name: Fix end of files
+        description: Ensures that a file is either empty or ends with one newline
+        types: [text]
+      - id: trailing-whitespace
+        name: Trim trailing whitespace
+        description: This hook trims trailing whitespace
+        types: [text]
