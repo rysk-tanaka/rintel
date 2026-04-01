@@ -100,3 +100,5 @@ cargo test -p ai-provider -p ai-session
 ## ライセンス
 
 MIT License — © Ryosuke Tanaka
+
+サードパーティのライセンス情報は [THIRD_PARTY_LICENSES.html](./THIRD_PARTY_LICENSES.html) を参照してください。

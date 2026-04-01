@@ -2,6 +2,7 @@
 name = "ai-session"
 version.workspace = true
 edition.workspace = true
+license.workspace = true
 
 [dependencies]
 ai-provider.workspace = true

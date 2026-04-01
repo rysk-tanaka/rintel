@@ -5,6 +5,7 @@ members = ["crates/ai-provider", "crates/ai-session", "apps/cli", "apps/gui/src-
 [workspace.package]
 version = "0.1.0"
 edition = "2024"
+license = "MIT"
 
 [workspace.dependencies]
 ai-provider = { path = "crates/ai-provider" }
