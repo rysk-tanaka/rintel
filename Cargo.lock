@@ -2971,6 +2971,7 @@ dependencies = [
  "ai-session",
  "anyhow",
  "chrono",
+ "dirs",
  "serde",
  "serde_json",
  "tauri",

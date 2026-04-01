@@ -40,3 +40,37 @@ export interface FileContextInfo {
 	filename: string;
 	size: number;
 }
+
+// Claude Code session viewer types
+
+export interface ClaudeProject {
+	dir_name: string;
+	decoded_path: string;
+}
+
+export interface ClaudeSessionSummary {
+	session_id: string;
+	slug: string | null;
+	timestamp: string | null;
+	message_count: number;
+}
+
+export interface ClaudeToolUse {
+	name: string;
+	input_preview: string;
+}
+
+export interface ClaudeMessage {
+	role: string;
+	timestamp: string;
+	text_content: string;
+	tool_uses: ClaudeToolUse[];
+	uuid: string;
+}
+
+export interface ClaudeSessionDetail {
+	session_id: string;
+	slug: string | null;
+	git_branch: string | null;
+	messages: ClaudeMessage[];
+}
