@@ -62,10 +62,10 @@ export interface ClaudeToolUse {
 
 export interface ClaudeMessage {
 	role: string;
-	timestamp: string;
+	timestamp: string | null;
 	text_content: string;
 	tool_uses: ClaudeToolUse[];
-	uuid: string;
+	uuid: string | null;
 }
 
 export interface ClaudeSessionDetail {

@@ -21,7 +21,9 @@ function MessageBlock({ message }: { message: ClaudeMessage }) {
 		<div className={`message ${isUser ? "message-user" : "message-assistant"}`}>
 			<div className="message-header">
 				<span className="message-role">{isUser ? "You" : "Claude"}</span>
-				<span className="message-time">{formatTime(message.timestamp)}</span>
+				{message.timestamp && (
+					<span className="message-time">{formatTime(message.timestamp)}</span>
+				)}
 			</div>
 			{message.text_content && (
 				<div className="message-content">{message.text_content}</div>
@@ -56,7 +58,7 @@ export function ClaudeConversation({ session }: ClaudeConversationProps) {
 			</div>
 			<div className="cc-messages">
 				{session.messages.map((msg, i) => (
-					<MessageBlock key={msg.uuid || i} message={msg} />
+					<MessageBlock key={msg.uuid ?? i} message={msg} />
 				))}
 				<div ref={endRef} />
 			</div>

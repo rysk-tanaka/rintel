@@ -18,8 +18,13 @@ export function useClaudeCode() {
 	const sessionRequestRef = useRef(0);
 
 	const loadProjects = useCallback(async () => {
-		const list = await invoke<ClaudeProject[]>("list_claude_projects");
-		setProjects(list);
+		try {
+			const list = await invoke<ClaudeProject[]>("list_claude_projects");
+			setProjects(list);
+		} catch (e) {
+			console.error("Failed to load projects:", e);
+			setProjects([]);
+		}
 	}, []);
 
 	useEffect(() => {
@@ -40,6 +45,11 @@ export function useClaudeCode() {
 			);
 			if (projectRequestRef.current !== requestId) return;
 			setSessions(list);
+		} catch (e) {
+			console.error("Failed to load sessions:", e);
+			if (projectRequestRef.current === requestId) {
+				setSessions([]);
+			}
 		} finally {
 			if (projectRequestRef.current === requestId) {
 				setLoading(false);
@@ -59,6 +69,11 @@ export function useClaudeCode() {
 				);
 				if (sessionRequestRef.current !== requestId) return;
 				setSelectedSession(detail);
+			} catch (e) {
+				console.error("Failed to load session:", e);
+				if (sessionRequestRef.current === requestId) {
+					setSelectedSession(null);
+				}
 			} finally {
 				if (sessionRequestRef.current === requestId) {
 					setLoading(false);

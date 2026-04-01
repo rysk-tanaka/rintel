@@ -27,10 +27,10 @@ pub struct ClaudeToolUse {
 #[derive(Serialize)]
 pub struct ClaudeMessage {
     pub role: String,
-    pub timestamp: String,
+    pub timestamp: Option<String>,
     pub text_content: String,
     pub tool_uses: Vec<ClaudeToolUse>,
-    pub uuid: String,
+    pub uuid: Option<String>,
 }
 
 #[derive(Serialize)]
@@ -48,6 +48,33 @@ fn claude_projects_dir() -> Result<PathBuf, String> {
         return Err(format!("{} does not exist", dir.display()));
     }
     Ok(dir)
+}
+
+/// Validate that the resolved path is still under the base directory (prevent symlink escape).
+fn validate_under_base(path: &PathBuf, base: &PathBuf) -> Result<(), String> {
+    let canonical = path
+        .canonicalize()
+        .map_err(|e| format!("cannot resolve path: {e}"))?;
+    let canonical_base = base
+        .canonicalize()
+        .map_err(|e| format!("cannot resolve base: {e}"))?;
+    if !canonical.starts_with(&canonical_base) {
+        return Err("path escapes base directory".to_string());
+    }
+    Ok(())
+}
+
+/// Validate that the input is a single normal path component (no separators or traversal).
+fn validate_path_component(s: &str) -> Result<(), String> {
+    if s.is_empty()
+        || s.contains('/')
+        || s.contains('\\')
+        || s.contains("..")
+        || s.starts_with('.')
+    {
+        return Err("invalid path component".to_string());
+    }
+    Ok(())
 }
 
 /// Decode Claude Code's encoded directory name back to a real filesystem path.
@@ -116,13 +143,13 @@ pub fn list_claude_projects() -> Result<Vec<ClaudeProject>, String> {
 
 #[tauri::command]
 pub fn list_claude_sessions(project_dir: String) -> Result<Vec<ClaudeSessionSummary>, String> {
-    if project_dir.contains("..") || project_dir.starts_with('/') || project_dir.contains('\\') {
-        return Err("invalid project directory".to_string());
-    }
-    let dir = claude_projects_dir()?.join(&project_dir);
+    validate_path_component(&project_dir)?;
+    let base = claude_projects_dir()?;
+    let dir = base.join(&project_dir);
     if !dir.is_dir() {
         return Err(format!("{} is not a directory", dir.display()));
     }
+    validate_under_base(&dir, &base)?;
 
     let mut sessions: Vec<ClaudeSessionSummary> = fs::read_dir(&dir)
         .map_err(|e| e.to_string())?
@@ -150,19 +177,6 @@ fn extract_session_summary(path: &PathBuf, session_id: String) -> ClaudeSessionS
         let reader = BufReader::new(file);
         for line in reader.lines() {
             let Ok(line) = line else { continue };
-
-            // After metadata is found, use lightweight string check for counting
-            if slug.is_some() && timestamp.is_some() {
-                let is_user_or_assistant =
-                    line.contains(r#""type":"user""#) || line.contains(r#""type":"assistant""#);
-                let is_compact = line.contains(r#""isCompactSummary":true"#);
-                let is_sidechain = line.contains(r#""isSidechain":true"#);
-                if is_user_or_assistant && !is_compact && !is_sidechain {
-                    message_count += 1;
-                }
-                continue;
-            }
-
             let Ok(val) = serde_json::from_str::<serde_json::Value>(&line) else {
                 continue;
             };
@@ -207,18 +221,17 @@ pub fn get_claude_session(
     project_dir: String,
     session_id: String,
 ) -> Result<ClaudeSessionDetail, String> {
-    if project_dir.contains("..") || project_dir.starts_with('/') || project_dir.contains('\\')
-        || session_id.contains("..") || session_id.starts_with('/') || session_id.contains('\\')
-    {
-        return Err("invalid project directory or session id".to_string());
+    validate_path_component(&project_dir)?;
+    if uuid::Uuid::parse_str(&session_id).is_err() {
+        return Err("invalid session id".to_string());
     }
-    let path = claude_projects_dir()?
-        .join(&project_dir)
-        .join(format!("{session_id}.jsonl"));
+    let base = claude_projects_dir()?;
+    let path = base.join(&project_dir).join(format!("{session_id}.jsonl"));
 
     if !path.is_file() {
         return Err(format!("session file not found: {}", path.display()));
     }
+    validate_under_base(&path, &base)?;
 
     let file = fs::File::open(&path).map_err(|e| e.to_string())?;
     let reader = BufReader::new(file);
@@ -269,13 +282,11 @@ pub fn get_claude_session(
         let timestamp = val
             .get("timestamp")
             .and_then(|v| v.as_str())
-            .unwrap_or("")
-            .to_owned();
+            .map(|s| s.to_owned());
         let uuid = val
             .get("uuid")
             .and_then(|v| v.as_str())
-            .unwrap_or("")
-            .to_owned();
+            .map(|s| s.to_owned());
 
         let (text_content, tool_uses) = extract_message_content(&val, msg_type);
 
