@@ -5,7 +5,7 @@
 //! - 失敗: `{"error":"type","message":"msg"}`
 
 use serde::{Deserialize, Serialize};
-use swift_rs::{swift, Bool, SRString};
+use swift_rs::{Bool, SRString, swift};
 
 swift!(fn ai_check_availability() -> Bool);
 swift!(fn ai_generate(system: &SRString, user: &SRString) -> SRString);

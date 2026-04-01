@@ -2,8 +2,8 @@ mod commands;
 
 use std::path::PathBuf;
 
-use ai_provider::provider::AiProvider;
 use ai_provider::AppleIntelligenceProvider;
+use ai_provider::provider::AiProvider;
 use clap::{Parser, Subcommand};
 
 #[derive(Parser)]

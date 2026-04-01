@@ -54,9 +54,10 @@ impl Session {
     pub fn add_file_context(&mut self, path: &Path) -> anyhow::Result<()> {
         let content = std::fs::read_to_string(path)
             .with_context(|| format!("failed to read {}", path.display()))?;
-        let filename = path
-            .file_name()
-            .map_or_else(|| path.display().to_string(), |n| n.to_string_lossy().to_string());
+        let filename = path.file_name().map_or_else(
+            || path.display().to_string(),
+            |n| n.to_string_lossy().to_string(),
+        );
         self.file_contexts.push(FileContext { filename, content });
         Ok(())
     }
@@ -110,10 +111,7 @@ mod tests {
         }
 
         fn generate(&self, request: &GenerateRequest) -> Result<GenerateResponse, ProviderError> {
-            let last = request
-                .messages
-                .last()
-                .map_or("", |m| m.content.as_str());
+            let last = request.messages.last().map_or("", |m| m.content.as_str());
             Ok(GenerateResponse {
                 content: format!("echo: {last}"),
                 provider: "mock".to_string(),

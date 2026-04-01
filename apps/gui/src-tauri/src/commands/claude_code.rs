@@ -51,7 +51,7 @@ fn claude_projects_dir() -> Result<PathBuf, String> {
 }
 
 /// Validate that the resolved path is still under the base directory (prevent symlink escape).
-fn validate_under_base(path: &PathBuf, base: &PathBuf) -> Result<(), String> {
+fn validate_under_base(path: &std::path::Path, base: &std::path::Path) -> Result<(), String> {
     let canonical = path
         .canonicalize()
         .map_err(|e| format!("cannot resolve path: {e}"))?;
@@ -66,11 +66,7 @@ fn validate_under_base(path: &PathBuf, base: &PathBuf) -> Result<(), String> {
 
 /// Validate that the input is a single normal path component (no separators or traversal).
 fn validate_path_component(s: &str) -> Result<(), String> {
-    if s.is_empty()
-        || s.contains('/')
-        || s.contains('\\')
-        || s.contains("..")
-        || s.starts_with('.')
+    if s.is_empty() || s.contains('/') || s.contains('\\') || s.contains("..") || s.starts_with('.')
     {
         return Err("invalid path component".to_string());
     }
@@ -114,9 +110,8 @@ fn decode_project_path(dir_name: &str) -> String {
 
 #[tauri::command]
 pub fn list_claude_projects() -> Result<Vec<ClaudeProject>, String> {
-    let dir = match claude_projects_dir() {
-        Ok(d) => d,
-        Err(_) => return Ok(Vec::new()),
+    let Ok(dir) = claude_projects_dir() else {
+        return Ok(Vec::new());
     };
     let mut projects: Vec<ClaudeProject> = fs::read_dir(&dir)
         .map_err(|e| e.to_string())?
@@ -168,7 +163,7 @@ pub fn list_claude_sessions(project_dir: String) -> Result<Vec<ClaudeSessionSumm
     Ok(sessions)
 }
 
-fn extract_session_summary(path: &PathBuf, session_id: String) -> ClaudeSessionSummary {
+fn extract_session_summary(path: &std::path::Path, session_id: String) -> ClaudeSessionSummary {
     let mut slug = None;
     let mut timestamp = None;
     let mut message_count: usize = 0;
@@ -181,29 +176,32 @@ fn extract_session_summary(path: &PathBuf, session_id: String) -> ClaudeSessionS
                 continue;
             };
 
-            let msg_type = val.get("type").and_then(|v| v.as_str()).unwrap_or("");
+            let msg_type = val
+                .get("type")
+                .and_then(serde_json::Value::as_str)
+                .unwrap_or("");
             let is_compact = val
                 .get("isCompactSummary")
-                .and_then(|v| v.as_bool())
+                .and_then(serde_json::Value::as_bool)
                 .unwrap_or(false);
             let is_sidechain = val
                 .get("isSidechain")
-                .and_then(|v| v.as_bool())
+                .and_then(serde_json::Value::as_bool)
                 .unwrap_or(false);
 
             if (msg_type == "user" || msg_type == "assistant") && !is_compact && !is_sidechain {
                 message_count += 1;
             }
 
-            if slug.is_none() {
-                if let Some(s) = val.get("slug").and_then(|v| v.as_str()) {
-                    slug = Some(s.to_owned());
-                }
+            if slug.is_none()
+                && let Some(s) = val.get("slug").and_then(serde_json::Value::as_str)
+            {
+                slug = Some(s.to_owned());
             }
-            if timestamp.is_none() {
-                if let Some(t) = val.get("timestamp").and_then(|v| v.as_str()) {
-                    timestamp = Some(t.to_owned());
-                }
+            if timestamp.is_none()
+                && let Some(t) = val.get("timestamp").and_then(serde_json::Value::as_str)
+            {
+                timestamp = Some(t.to_owned());
             }
         }
     }
@@ -246,7 +244,10 @@ pub fn get_claude_session(
             continue;
         };
 
-        let msg_type = val.get("type").and_then(|v| v.as_str()).unwrap_or("");
+        let msg_type = val
+            .get("type")
+            .and_then(serde_json::Value::as_str)
+            .unwrap_or("");
 
         if msg_type != "user" && msg_type != "assistant" {
             continue;
@@ -254,11 +255,11 @@ pub fn get_claude_session(
 
         let is_compact = val
             .get("isCompactSummary")
-            .and_then(|v| v.as_bool())
+            .and_then(serde_json::Value::as_bool)
             .unwrap_or(false);
         let is_sidechain = val
             .get("isSidechain")
-            .and_then(|v| v.as_bool())
+            .and_then(serde_json::Value::as_bool)
             .unwrap_or(false);
 
         if is_compact || is_sidechain {
@@ -269,24 +270,24 @@ pub fn get_claude_session(
         if slug.is_none() {
             slug = val
                 .get("slug")
-                .and_then(|v| v.as_str())
-                .map(|s| s.to_owned());
+                .and_then(serde_json::Value::as_str)
+                .map(ToOwned::to_owned);
         }
         if git_branch.is_none() {
             git_branch = val
                 .get("gitBranch")
-                .and_then(|v| v.as_str())
-                .map(|s| s.to_owned());
+                .and_then(serde_json::Value::as_str)
+                .map(ToOwned::to_owned);
         }
 
         let timestamp = val
             .get("timestamp")
-            .and_then(|v| v.as_str())
-            .map(|s| s.to_owned());
+            .and_then(serde_json::Value::as_str)
+            .map(ToOwned::to_owned);
         let uuid = val
             .get("uuid")
-            .and_then(|v| v.as_str())
-            .map(|s| s.to_owned());
+            .and_then(serde_json::Value::as_str)
+            .map(ToOwned::to_owned);
 
         let (text_content, tool_uses) = extract_message_content(&val, msg_type);
 
@@ -307,7 +308,10 @@ pub fn get_claude_session(
     })
 }
 
-fn extract_message_content(val: &serde_json::Value, msg_type: &str) -> (String, Vec<ClaudeToolUse>) {
+fn extract_message_content(
+    val: &serde_json::Value,
+    msg_type: &str,
+) -> (String, Vec<ClaudeToolUse>) {
     let mut text_content = String::new();
     let mut tool_uses = Vec::new();
 
@@ -322,11 +326,11 @@ fn extract_message_content(val: &serde_json::Value, msg_type: &str) -> (String, 
     if msg_type == "user" {
         // User messages: content is a string
         if let Some(s) = content.as_str() {
-            text_content = s.to_owned();
+            s.clone_into(&mut text_content);
         } else if let Some(arr) = content.as_array() {
             // Sometimes user content is also an array
             for block in arr {
-                if let Some(text) = block.get("text").and_then(|v| v.as_str()) {
+                if let Some(text) = block.get("text").and_then(serde_json::Value::as_str) {
                     if !text_content.is_empty() {
                         text_content.push('\n');
                     }
@@ -338,10 +342,13 @@ fn extract_message_content(val: &serde_json::Value, msg_type: &str) -> (String, 
         // Assistant messages: content is an array of blocks
         if let Some(arr) = content.as_array() {
             for block in arr {
-                let block_type = block.get("type").and_then(|v| v.as_str()).unwrap_or("");
+                let block_type = block
+                    .get("type")
+                    .and_then(serde_json::Value::as_str)
+                    .unwrap_or("");
                 match block_type {
                     "text" => {
-                        if let Some(text) = block.get("text").and_then(|v| v.as_str()) {
+                        if let Some(text) = block.get("text").and_then(serde_json::Value::as_str) {
                             if !text_content.is_empty() {
                                 text_content.push('\n');
                             }
@@ -351,7 +358,7 @@ fn extract_message_content(val: &serde_json::Value, msg_type: &str) -> (String, 
                     "tool_use" => {
                         let name = block
                             .get("name")
-                            .and_then(|v| v.as_str())
+                            .and_then(serde_json::Value::as_str)
                             .unwrap_or("unknown")
                             .to_owned();
                         let input_preview = block

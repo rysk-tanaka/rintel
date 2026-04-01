@@ -12,8 +12,8 @@ impl AppState {
     #[allow(clippy::expect_used)]
     pub fn new() -> Self {
         let config = SessionConfig::default();
-        let manager = SessionManager::new(&config.storage_dir)
-            .expect("failed to initialize session manager");
+        let manager =
+            SessionManager::new(&config.storage_dir).expect("failed to initialize session manager");
 
         Self {
             provider: AppleIntelligenceProvider::new(),

@@ -90,7 +90,11 @@ fn build_file_prefix(files: &[FileContext]) -> String {
     let mut prefix = String::from("--- Reference Files ---\n\n");
     for file in files {
         use std::fmt::Write;
-        let _ = writeln!(prefix, "### {}\n```\n{}\n```\n", file.filename, file.content);
+        let _ = writeln!(
+            prefix,
+            "### {}\n```\n{}\n```\n",
+            file.filename, file.content
+        );
     }
     prefix.push_str("--- End of Files ---\n\n");
     prefix

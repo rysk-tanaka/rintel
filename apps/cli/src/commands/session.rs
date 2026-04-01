@@ -46,8 +46,20 @@ fn show(manager: &SessionManager, prefix: &str) -> Result<()> {
     if let Some(title) = &session.title {
         println!("Title:   {title}");
     }
-    println!("Created: {}", session.created_at.with_timezone(&Local).format("%Y-%m-%d %H:%M:%S"));
-    println!("Active:  {}", session.last_active.with_timezone(&Local).format("%Y-%m-%d %H:%M:%S"));
+    println!(
+        "Created: {}",
+        session
+            .created_at
+            .with_timezone(&Local)
+            .format("%Y-%m-%d %H:%M:%S")
+    );
+    println!(
+        "Active:  {}",
+        session
+            .last_active
+            .with_timezone(&Local)
+            .format("%Y-%m-%d %H:%M:%S")
+    );
     if let Some(ttl) = session.ttl_secs {
         println!("TTL:     {ttl}s");
     }
@@ -55,7 +67,15 @@ fn show(manager: &SessionManager, prefix: &str) -> Result<()> {
         println!("System:  {system}");
     }
     if !session.file_contexts.is_empty() {
-        println!("Files:   {}", session.file_contexts.iter().map(|f| f.filename.as_str()).collect::<Vec<_>>().join(", "));
+        println!(
+            "Files:   {}",
+            session
+                .file_contexts
+                .iter()
+                .map(|f| f.filename.as_str())
+                .collect::<Vec<_>>()
+                .join(", ")
+        );
     }
     println!("---");
 

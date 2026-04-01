@@ -15,12 +15,13 @@ pub fn run(
     let file_contexts = files
         .iter()
         .map(|path| {
-            let content =
-                std::fs::read_to_string(path).with_context(|| format!("failed to read {}", path.display()))?;
+            let content = std::fs::read_to_string(path)
+                .with_context(|| format!("failed to read {}", path.display()))?;
             Ok(FileContext {
-                filename: path
-                    .file_name()
-                    .map_or_else(|| path.display().to_string(), |n| n.to_string_lossy().to_string()),
+                filename: path.file_name().map_or_else(
+                    || path.display().to_string(),
+                    |n| n.to_string_lossy().to_string(),
+                ),
                 content,
             })
         })

@@ -24,5 +24,5 @@ pub fn run() {
             commands::claude_code::get_claude_session,
         ])
         .run(tauri::generate_context!())
-        .expect("error while running tauri application");
+        .unwrap_or_else(|e| eprintln!("tauri application error: {e}"));
 }

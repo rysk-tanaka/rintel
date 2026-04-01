@@ -40,18 +40,18 @@ impl SessionManager {
         for entry in entries {
             let entry = entry?;
             let path = entry.path();
-            if path.extension().is_some_and(|ext| ext == "json") {
-                if let Ok(session) = self.load_from_path(&path) {
-                    let expired = session.is_expired();
-                    summaries.push(SessionSummary {
-                        id: session.id,
-                        title: session.title,
-                        created_at: session.created_at,
-                        last_active: session.last_active,
-                        message_count: session.messages.len(),
-                        expired,
-                    });
-                }
+            if path.extension().is_some_and(|ext| ext == "json")
+                && let Ok(session) = self.load_from_path(&path)
+            {
+                let expired = session.is_expired();
+                summaries.push(SessionSummary {
+                    id: session.id,
+                    title: session.title,
+                    created_at: session.created_at,
+                    last_active: session.last_active,
+                    message_count: session.messages.len(),
+                    expired,
+                });
             }
         }
 
@@ -68,8 +68,7 @@ impl SessionManager {
     /// セッションを保存する
     pub fn save(&self, session: &Session) -> Result<()> {
         let path = self.session_path(&session.id);
-        let json = serde_json::to_string_pretty(session)
-            .context("failed to serialize session")?;
+        let json = serde_json::to_string_pretty(session).context("failed to serialize session")?;
         std::fs::write(&path, json)
             .with_context(|| format!("failed to write {}", path.display()))?;
         Ok(())

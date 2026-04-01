@@ -110,7 +110,9 @@ pub fn run(
                     eprintln!("{} {e}", "Warning: failed to save session:".yellow());
                 }
             }
-            Err(rustyline::error::ReadlineError::Interrupted | rustyline::error::ReadlineError::Eof) => {
+            Err(
+                rustyline::error::ReadlineError::Interrupted | rustyline::error::ReadlineError::Eof,
+            ) => {
                 manager.save(&session)?;
                 eprintln!("\n{}", "Session saved.".dimmed());
                 break;
@@ -170,7 +172,10 @@ fn handle_command(
             CommandResult::Continue
         }
         _ => {
-            eprintln!("{}", format!("Unknown command: {cmd}. Type /help for commands.").yellow());
+            eprintln!(
+                "{}",
+                format!("Unknown command: {cmd}. Type /help for commands.").yellow()
+            );
             CommandResult::Continue
         }
     }
