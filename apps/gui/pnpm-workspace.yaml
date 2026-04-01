@@ -1,1 +1,2 @@
 approveBuilds: esbuild
+minimumReleaseAge: 4320
