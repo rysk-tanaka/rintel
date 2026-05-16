@@ -16,7 +16,7 @@ jobs:
       pull-requests: write
       issues: write
       id-token: write
-    uses: rysk-tanaka/workflows/.github/workflows/issue-implement.yml@main
+    uses: rysk-tanaka/workflows/.github/workflows/issue-implement.yml@771568561936d8c2efc5e713ae5ac10bb851b47c # main
     with:
       package_manager: none
       setup_command: "rustup update stable"
