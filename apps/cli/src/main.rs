@@ -27,6 +27,10 @@ enum Commands {
         /// Files to include as context
         #[arg(short, long, value_name = "FILE")]
         file: Vec<PathBuf>,
+
+        /// JSON Schema file for guided/structured output (returns conforming JSON)
+        #[arg(long, value_name = "FILE")]
+        schema: Option<PathBuf>,
     },
 
     /// Interactive chat
@@ -72,12 +76,19 @@ fn main() -> anyhow::Result<()> {
             prompt,
             system,
             file,
+            schema,
         } => {
             if !provider.is_available() {
                 eprintln!("Warning: Apple Intelligence is not available on this system.");
             }
             let file_refs: Vec<&std::path::Path> = file.iter().map(PathBuf::as_path).collect();
-            commands::ask::run(&provider, prompt, system.as_deref(), &file_refs)?;
+            commands::ask::run(
+                &provider,
+                prompt,
+                system.as_deref(),
+                &file_refs,
+                schema.as_deref(),
+            )?;
         }
         Commands::Chat {
             system,

@@ -57,6 +57,37 @@ private struct ChatMessage: Decodable {
     let content: String
 }
 
+// MARK: - Error mapping
+
+#if canImport(FoundationModels)
+/// Maps a Foundation Models generation error to the bridge's JSON error envelope.
+@available(macOS 26.0, *)
+private func generationErrorJSON(_ error: LanguageModelSession.GenerationError) -> String {
+    switch error {
+    case .guardrailViolation:
+        return jsonErr("guardrail_violation", "Content flagged by safety guardrails")
+    case .exceededContextWindowSize:
+        return jsonErr("context_exceeded", "Context window size exceeded")
+    case .assetsUnavailable:
+        return jsonErr("assets_unavailable", "Model assets are not available")
+    case .unsupportedLanguageOrLocale:
+        return jsonErr("unsupported_language", "Language or locale is not supported")
+    case .rateLimited:
+        return jsonErr("rate_limited", "Rate limit exceeded")
+    case .concurrentRequests:
+        return jsonErr("concurrent_requests", "Too many concurrent requests")
+    case .decodingFailure:
+        return jsonErr("decoding_failure", "Model output could not be decoded")
+    case .refusal:
+        return jsonErr("refusal", "Model refused to generate content")
+    case .unsupportedGuide:
+        return jsonErr("unsupported_guide", "Requested generation guide is not supported")
+    @unknown default:
+        return jsonErr("generation_error", error.localizedDescription)
+    }
+}
+#endif
+
 // MARK: - Text generation
 
 /// Synchronous wrapper around Foundation Models async API.
@@ -81,28 +112,7 @@ public func aiGenerate(system: SRString, user: SRString) -> SRString {
             let response = try await session.respond(to: userPrompt)
             box.value = jsonOk(response.content)
         } catch let error as LanguageModelSession.GenerationError {
-            switch error {
-            case .guardrailViolation:
-                box.value = jsonErr("guardrail_violation", "Content flagged by safety guardrails")
-            case .exceededContextWindowSize:
-                box.value = jsonErr("context_exceeded", "Context window size exceeded")
-            case .assetsUnavailable:
-                box.value = jsonErr("assets_unavailable", "Model assets are not available")
-            case .unsupportedLanguageOrLocale:
-                box.value = jsonErr("unsupported_language", "Language or locale is not supported")
-            case .rateLimited:
-                box.value = jsonErr("rate_limited", "Rate limit exceeded")
-            case .concurrentRequests:
-                box.value = jsonErr("concurrent_requests", "Too many concurrent requests")
-            case .decodingFailure:
-                box.value = jsonErr("decoding_failure", "Model output could not be decoded")
-            case .refusal:
-                box.value = jsonErr("refusal", "Model refused to generate content")
-            case .unsupportedGuide:
-                box.value = jsonErr("unsupported_guide", "Requested generation guide is not supported")
-            @unknown default:
-                box.value = jsonErr("generation_error", error.localizedDescription)
-            }
+            box.value = generationErrorJSON(error)
         } catch {
             box.value = jsonErr("unknown", error.localizedDescription)
         }
@@ -167,28 +177,121 @@ public func aiGenerateWithHistory(payload: SRString) -> SRString {
 
             box.value = jsonOk(lastResponse)
         } catch let error as LanguageModelSession.GenerationError {
-            switch error {
-            case .guardrailViolation:
-                box.value = jsonErr("guardrail_violation", "Content flagged by safety guardrails")
-            case .exceededContextWindowSize:
-                box.value = jsonErr("context_exceeded", "Context window size exceeded")
-            case .assetsUnavailable:
-                box.value = jsonErr("assets_unavailable", "Model assets are not available")
-            case .unsupportedLanguageOrLocale:
-                box.value = jsonErr("unsupported_language", "Language or locale is not supported")
-            case .rateLimited:
-                box.value = jsonErr("rate_limited", "Rate limit exceeded")
-            case .concurrentRequests:
-                box.value = jsonErr("concurrent_requests", "Too many concurrent requests")
-            case .decodingFailure:
-                box.value = jsonErr("decoding_failure", "Model output could not be decoded")
-            case .refusal:
-                box.value = jsonErr("refusal", "Model refused to generate content")
-            case .unsupportedGuide:
-                box.value = jsonErr("unsupported_guide", "Requested generation guide is not supported")
-            @unknown default:
-                box.value = jsonErr("generation_error", error.localizedDescription)
-            }
+            box.value = generationErrorJSON(error)
+        } catch {
+            box.value = jsonErr("unknown", error.localizedDescription)
+        }
+        semaphore.signal()
+    }
+
+    semaphore.wait()
+    return SRString(box.value)
+    #else
+    return SRString(jsonErr("unsupported_sdk", "FoundationModels framework not available"))
+    #endif
+}
+
+// MARK: - Structured (guided) generation
+
+/// JSON Schema (subset) を DynamicGenerationSchema に変換する。
+///
+/// 対応する型: object (properties/required), array (items/minItems/maxItems),
+/// string, integer, number, boolean。description は各プロパティに付与される。
+#if canImport(FoundationModels)
+@available(macOS 26.0, *)
+private func buildDynamicSchema(_ node: [String: Any], _ name: String) throws -> DynamicGenerationSchema {
+    guard let type = node["type"] as? String else {
+        throw NSError(
+            domain: "rintel.schema", code: 1,
+            userInfo: [NSLocalizedDescriptionKey: "missing 'type' at \(name)"])
+    }
+    switch type {
+    case "object":
+        let props = node["properties"] as? [String: [String: Any]] ?? [:]
+        let required = node["required"] as? [String] ?? []
+        var properties: [DynamicGenerationSchema.Property] = []
+        for (key, child) in props {
+            let childSchema = try buildDynamicSchema(child, "\(name)_\(key)")
+            properties.append(
+                DynamicGenerationSchema.Property(
+                    name: key,
+                    description: child["description"] as? String,
+                    schema: childSchema,
+                    isOptional: !required.contains(key)
+                )
+            )
+        }
+        return DynamicGenerationSchema(
+            name: name,
+            description: node["description"] as? String,
+            properties: properties
+        )
+    case "array":
+        guard let items = node["items"] as? [String: Any] else {
+            throw NSError(
+                domain: "rintel.schema", code: 2,
+                userInfo: [NSLocalizedDescriptionKey: "array missing 'items' at \(name)"])
+        }
+        let itemSchema = try buildDynamicSchema(items, "\(name)_item")
+        return DynamicGenerationSchema(
+            arrayOf: itemSchema,
+            minimumElements: node["minItems"] as? Int,
+            maximumElements: node["maxItems"] as? Int
+        )
+    case "string":
+        return DynamicGenerationSchema(type: String.self)
+    case "integer":
+        return DynamicGenerationSchema(type: Int.self)
+    case "number":
+        return DynamicGenerationSchema(type: Double.self)
+    case "boolean":
+        return DynamicGenerationSchema(type: Bool.self)
+    default:
+        throw NSError(
+            domain: "rintel.schema", code: 3,
+            userInfo: [NSLocalizedDescriptionKey: "unsupported type '\(type)' at \(name)"])
+    }
+}
+#endif
+
+/// 与えられた JSON Schema に従って構造化生成を行う（ブロッキング、シングルターン）。
+///
+/// 出力は schema に適合する JSON 文字列で、`{"ok": "<json>"}` に包んで返す。
+/// 小型モデルでもスキーマ準拠が保証されるため、フリーテキスト生成の
+/// 不正 JSON・例文丸写しを防げる。
+@_cdecl("ai_generate_structured")
+public func aiGenerateStructured(system: SRString, user: SRString, schema: SRString) -> SRString {
+    #if canImport(FoundationModels)
+    guard #available(macOS 26.0, *) else {
+        return SRString(jsonErr("unsupported_os", "macOS 26.0 or later is required"))
+    }
+
+    let systemPrompt = system.toString()
+    let userPrompt = user.toString()
+    let schemaStr = schema.toString()
+
+    let generationSchema: GenerationSchema
+    do {
+        guard let data = schemaStr.data(using: .utf8),
+              let node = try JSONSerialization.jsonObject(with: data) as? [String: Any] else {
+            return SRString(jsonErr("invalid_schema", "Failed to parse JSON schema"))
+        }
+        let root = try buildDynamicSchema(node, "Root")
+        generationSchema = try GenerationSchema(root: root, dependencies: [])
+    } catch {
+        return SRString(jsonErr("invalid_schema", error.localizedDescription))
+    }
+
+    let box = ResultBox(jsonErr("unknown", "Generation did not complete"))
+    let semaphore = DispatchSemaphore(value: 0)
+
+    Task {
+        do {
+            let session = LanguageModelSession(instructions: systemPrompt)
+            let response = try await session.respond(to: userPrompt, schema: generationSchema)
+            box.value = jsonOk(response.content.jsonString)
+        } catch let error as LanguageModelSession.GenerationError {
+            box.value = generationErrorJSON(error)
         } catch {
             box.value = jsonErr("unknown", error.localizedDescription)
         }
