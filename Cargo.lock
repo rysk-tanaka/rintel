@@ -19,7 +19,7 @@ dependencies = [
 
 [[package]]
 name = "ai-provider"
-version = "0.1.0"
+version = "0.2.0"
 dependencies = [
  "chrono",
  "serde",
@@ -30,7 +30,7 @@ dependencies = [
 
 [[package]]
 name = "ai-session"
-version = "0.1.0"
+version = "0.2.0"
 dependencies = [
  "ai-provider",
  "anyhow",
@@ -2951,7 +2951,7 @@ dependencies = [
 
 [[package]]
 name = "rintel-cli"
-version = "0.1.0"
+version = "0.2.0"
 dependencies = [
  "ai-provider",
  "ai-session",
@@ -2965,7 +2965,7 @@ dependencies = [
 
 [[package]]
 name = "rintel-gui"
-version = "0.1.0"
+version = "0.2.0"
 dependencies = [
  "ai-provider",
  "ai-session",
