@@ -55,7 +55,7 @@ impl SessionManager {
             }
         }
 
-        summaries.sort_by(|a, b| b.last_active.cmp(&a.last_active));
+        summaries.sort_by_key(|b| std::cmp::Reverse(b.last_active));
         Ok(summaries)
     }
 
