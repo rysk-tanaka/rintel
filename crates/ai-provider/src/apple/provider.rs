@@ -36,7 +36,16 @@ impl AiProvider for AppleIntelligenceProvider {
 
         let has_history = request.messages.len() > 1;
 
-        let result = if has_history {
+        // 構造化生成はシングルターン専用。履歴付きで schema を渡されたら平坦化して黙って
+        // 履歴を捨てるのではなく、明示的に拒否する（マルチターンは ai_generate_with_history
+        // 経由で履歴を再現すべき、というリポジトリ規約に沿う）。
+        let result = if let Some(schema) = request.response_schema.as_deref() {
+            if has_history {
+                Err("structured generation only supports single-turn requests".to_string())
+            } else {
+                generate_structured(request, schema)
+            }
+        } else if has_history {
             generate_multi_turn(request)
         } else {
             generate_single_turn(request)
@@ -56,6 +65,13 @@ fn generate_single_turn(request: &GenerateRequest) -> Result<String, String> {
     let system = request.system_prompt.as_deref().unwrap_or("");
     let user_prompt = build_single_prompt(&request.messages, &request.file_contexts);
     ffi::generate(system, &user_prompt)
+}
+
+/// 構造化生成（JSON Schema 準拠の JSON を返す、シングルターン）
+fn generate_structured(request: &GenerateRequest, schema: &str) -> Result<String, String> {
+    let system = request.system_prompt.as_deref().unwrap_or("");
+    let user_prompt = build_single_prompt(&request.messages, &request.file_contexts);
+    ffi::generate_structured(system, &user_prompt, schema)
 }
 
 /// マルチターン生成（LanguageModelSession で会話履歴を再現）

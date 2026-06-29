@@ -8,6 +8,10 @@ pub struct GenerateRequest {
     pub messages: Vec<Message>,
     #[serde(default)]
     pub file_contexts: Vec<FileContext>,
+    /// JSON Schema for guided/structured output. When set, the provider
+    /// constrains generation to this schema and returns conforming JSON.
+    #[serde(default)]
+    pub response_schema: Option<String>,
 }
 
 /// ファイルコンテキスト（プロンプトに注入されるファイル内容）

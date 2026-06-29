@@ -10,6 +10,7 @@ use swift_rs::{Bool, SRString, swift};
 swift!(fn ai_check_availability() -> Bool);
 swift!(fn ai_generate(system: &SRString, user: &SRString) -> SRString);
 swift!(fn ai_generate_with_history(payload: &SRString) -> SRString);
+swift!(fn ai_generate_structured(system: &SRString, user: &SRString, schema: &SRString) -> SRString);
 
 #[derive(Deserialize)]
 struct AiOk {
@@ -68,6 +69,20 @@ pub fn generate_with_history(
 
     // Safety: FFI call that blocks via DispatchSemaphore internally.
     let json = unsafe { ai_generate_with_history(&sr) };
+    parse_response(json.as_str())
+}
+
+/// JSON Schema に従って構造化生成を行う（ブロッキング、シングルターン）
+///
+/// `schema_json` は JSON Schema 文字列。返り値はスキーマに適合する JSON 文字列。
+pub fn generate_structured(system: &str, user: &str, schema_json: &str) -> Result<String, String> {
+    let system = SRString::from(system);
+    let user = SRString::from(user);
+    let schema = SRString::from(schema_json);
+
+    // Safety: FFI call that blocks via DispatchSemaphore internally.
+    // Must not be called from the main thread.
+    let json = unsafe { ai_generate_structured(&system, &user, &schema) };
     parse_response(json.as_str())
 }
 

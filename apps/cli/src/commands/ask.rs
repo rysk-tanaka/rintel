@@ -5,12 +5,13 @@ use ai_provider::types::{FileContext, GenerateRequest, Message, Role};
 use anyhow::{Context, Result};
 use chrono::Utc;
 
-/// 単発クエリを実行し、結果を���準出力に表示する
+/// 単発クエリを実行し、結果を標準出力に表示する
 pub fn run(
     provider: &dyn AiProvider,
     prompt: &str,
     system: Option<&str>,
     files: &[&Path],
+    schema_file: Option<&Path>,
 ) -> Result<()> {
     let file_contexts = files
         .iter()
@@ -27,6 +28,13 @@ pub fn run(
         })
         .collect::<Result<Vec<_>>>()?;
 
+    let response_schema = schema_file
+        .map(|path| {
+            std::fs::read_to_string(path)
+                .with_context(|| format!("failed to read schema {}", path.display()))
+        })
+        .transpose()?;
+
     let request = GenerateRequest {
         system_prompt: system.map(String::from),
         messages: vec![Message {
@@ -35,6 +43,7 @@ pub fn run(
             timestamp: Utc::now(),
         }],
         file_contexts,
+        response_schema,
     };
 
     let response = provider.generate(&request)?;

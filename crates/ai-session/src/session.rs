@@ -78,6 +78,7 @@ impl Session {
             system_prompt: self.system_prompt.clone(),
             messages: self.messages.clone(),
             file_contexts: self.file_contexts.clone(),
+            response_schema: None,
         };
 
         let response = provider.generate(&request)?;
