@@ -198,6 +198,17 @@ public func aiGenerateWithHistory(payload: SRString) -> SRString {
 /// 対応する型: object (properties/required), array (items/minItems/maxItems),
 /// string, integer, number, boolean。description は各プロパティに付与される。
 #if canImport(FoundationModels)
+/// 整数キーを取り出す。キー不在は nil、present だが Int でない場合は invalid_schema として弾く。
+private func intOrNil(_ value: Any?, _ key: String, _ name: String) throws -> Int? {
+    guard let value else { return nil }
+    guard let intValue = value as? Int else {
+        throw NSError(
+            domain: "rintel.schema", code: 6,
+            userInfo: [NSLocalizedDescriptionKey: "malformed '\(key)' at \(name)"])
+    }
+    return intValue
+}
+
 @available(macOS 26.0, *)
 private func buildDynamicSchema(_ node: [String: Any], _ name: String) throws -> DynamicGenerationSchema {
     guard let type = node["type"] as? String else {
@@ -207,8 +218,30 @@ private func buildDynamicSchema(_ node: [String: Any], _ name: String) throws ->
     }
     switch type {
     case "object":
-        let props = node["properties"] as? [String: [String: Any]] ?? [:]
-        let required = node["required"] as? [String] ?? []
+        // present-but-wrong-type は invalid_schema として弾く。キー不在のときだけ既定値に倒す
+        // （サイレントに全プロパティを落とすと空オブジェクト生成になり原因が分かりづらいため）。
+        let props: [String: [String: Any]]
+        if let raw = node["properties"] {
+            guard let typed = raw as? [String: [String: Any]] else {
+                throw NSError(
+                    domain: "rintel.schema", code: 4,
+                    userInfo: [NSLocalizedDescriptionKey: "malformed 'properties' at \(name)"])
+            }
+            props = typed
+        } else {
+            props = [:]
+        }
+        let required: [String]
+        if let raw = node["required"] {
+            guard let typed = raw as? [String] else {
+                throw NSError(
+                    domain: "rintel.schema", code: 5,
+                    userInfo: [NSLocalizedDescriptionKey: "malformed 'required' at \(name)"])
+            }
+            required = typed
+        } else {
+            required = []
+        }
         var properties: [DynamicGenerationSchema.Property] = []
         for (key, child) in props {
             let childSchema = try buildDynamicSchema(child, "\(name)_\(key)")
@@ -235,8 +268,8 @@ private func buildDynamicSchema(_ node: [String: Any], _ name: String) throws ->
         let itemSchema = try buildDynamicSchema(items, "\(name)_item")
         return DynamicGenerationSchema(
             arrayOf: itemSchema,
-            minimumElements: node["minItems"] as? Int,
-            maximumElements: node["maxItems"] as? Int
+            minimumElements: try intOrNil(node["minItems"], "minItems", name),
+            maximumElements: try intOrNil(node["maxItems"], "maxItems", name)
         )
     case "string":
         return DynamicGenerationSchema(type: String.self)
@@ -257,8 +290,8 @@ private func buildDynamicSchema(_ node: [String: Any], _ name: String) throws ->
 /// 与えられた JSON Schema に従って構造化生成を行う（ブロッキング、シングルターン）。
 ///
 /// 出力は schema に適合する JSON 文字列で、`{"ok": "<json>"}` に包んで返す。
-/// 小型モデルでもスキーマ準拠が保証されるため、フリーテキスト生成の
-/// 不正 JSON・例文丸写しを防げる。
+/// 小型モデルでもスキーマ準拠を強制するため、フリーテキスト生成の
+/// 不正 JSON・例文丸写しを防げる（生成自体が decodingFailure で失敗する余地は残る）。
 @_cdecl("ai_generate_structured")
 public func aiGenerateStructured(system: SRString, user: SRString, schema: SRString) -> SRString {
     #if canImport(FoundationModels)

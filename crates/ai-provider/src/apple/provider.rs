@@ -36,8 +36,9 @@ impl AiProvider for AppleIntelligenceProvider {
 
         let has_history = request.messages.len() > 1;
 
-        // Structured output applies to single-turn requests only; multi-turn
-        // chat keeps free-text generation.
+        // response_schema が設定されていれば常にシングルターンの構造化生成として扱い、
+        // 会話履歴は build_single_prompt で 1 プロンプトに平坦化される（履歴は再生されない）。
+        // マルチターンのフリーテキスト生成はスキーマ未設定のときだけ適用される。
         let result = if let Some(schema) = request.response_schema.as_deref() {
             generate_structured(request, schema)
         } else if has_history {
