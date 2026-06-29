@@ -193,10 +193,6 @@ public func aiGenerateWithHistory(payload: SRString) -> SRString {
 
 // MARK: - Structured (guided) generation
 
-/// JSON Schema (subset) を DynamicGenerationSchema に変換する。
-///
-/// 対応する型: object (properties/required), array (items/minItems/maxItems),
-/// string, integer, number, boolean。description は各プロパティに付与される。
 #if canImport(FoundationModels)
 /// 整数キーを取り出す。キー不在は nil、present だが Int でない場合は invalid_schema として弾く。
 private func intOrNil(_ value: Any?, _ key: String, _ name: String) throws -> Int? {
@@ -209,12 +205,36 @@ private func intOrNil(_ value: Any?, _ key: String, _ name: String) throws -> In
     return intValue
 }
 
+/// 文字列キーを取り出す。キー不在は nil、present だが String でない場合は invalid_schema として弾く
+/// （intOrNil と同じく、サイレントに値を捨てない）。
+private func stringOrNil(_ value: Any?, _ key: String, _ name: String) throws -> String? {
+    guard let value else { return nil }
+    guard let stringValue = value as? String else {
+        throw NSError(
+            domain: "rintel.schema", code: 6,
+            userInfo: [NSLocalizedDescriptionKey: "malformed '\(key)' at \(name)"])
+    }
+    return stringValue
+}
+
+/// JSON Schema (subset) を DynamicGenerationSchema に変換する。
+///
+/// 対応する型: object (properties/required), array (items/minItems/maxItems),
+/// string, integer, number, boolean。description は object ノード自身と各プロパティに付与される。
+/// enum など非対応の制約キーワードは黙って無視せず invalid_schema として拒否する。
 @available(macOS 26.0, *)
 private func buildDynamicSchema(_ node: [String: Any], _ name: String) throws -> DynamicGenerationSchema {
     guard let type = node["type"] as? String else {
+        let detail = node["type"] == nil ? "missing 'type'" : "malformed 'type'"
         throw NSError(
             domain: "rintel.schema", code: 1,
-            userInfo: [NSLocalizedDescriptionKey: "missing 'type' at \(name)"])
+            userInfo: [NSLocalizedDescriptionKey: "\(detail) at \(name)"])
+    }
+    // 制約を honor できない enum を素通りさせると非適合 JSON を「適合」として返しかねないため拒否する。
+    if node["enum"] != nil {
+        throw NSError(
+            domain: "rintel.schema", code: 7,
+            userInfo: [NSLocalizedDescriptionKey: "unsupported 'enum' at \(name)"])
     }
     switch type {
     case "object":
@@ -248,7 +268,7 @@ private func buildDynamicSchema(_ node: [String: Any], _ name: String) throws ->
             properties.append(
                 DynamicGenerationSchema.Property(
                     name: key,
-                    description: child["description"] as? String,
+                    description: try stringOrNil(child["description"], "description", "\(name)_\(key)"),
                     schema: childSchema,
                     isOptional: !required.contains(key)
                 )
@@ -256,14 +276,15 @@ private func buildDynamicSchema(_ node: [String: Any], _ name: String) throws ->
         }
         return DynamicGenerationSchema(
             name: name,
-            description: node["description"] as? String,
+            description: try stringOrNil(node["description"], "description", name),
             properties: properties
         )
     case "array":
         guard let items = node["items"] as? [String: Any] else {
+            let detail = node["items"] == nil ? "array missing 'items'" : "malformed 'items'"
             throw NSError(
                 domain: "rintel.schema", code: 2,
-                userInfo: [NSLocalizedDescriptionKey: "array missing 'items' at \(name)"])
+                userInfo: [NSLocalizedDescriptionKey: "\(detail) at \(name)"])
         }
         let itemSchema = try buildDynamicSchema(items, "\(name)_item")
         return DynamicGenerationSchema(
