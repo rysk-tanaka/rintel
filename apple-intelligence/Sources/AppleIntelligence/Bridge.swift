@@ -267,7 +267,13 @@ private func rejectUnsupportedSchemaConstraints(_ node: [String: Any], _ type: S
 /// enforcement できない制約キーワード（enum/minimum/pattern/if など）は allowlist 方式で
 /// 黙って無視せず invalid_schema として拒否する（rejectUnsupportedSchemaConstraints 参照）。
 @available(macOS 26.0, *)
-private func buildDynamicSchema(_ node: [String: Any], _ name: String) throws -> DynamicGenerationSchema {
+private func buildDynamicSchema(_ node: [String: Any], _ name: String, depth: Int = 0) throws -> DynamicGenerationSchema {
+    // 深くネストしたスキーマで再帰がスタックを溢れさせないよう上限を設ける（実用上 20 段で十分）。
+    guard depth < 20 else {
+        throw NSError(
+            domain: "rintel.schema", code: 9,
+            userInfo: [NSLocalizedDescriptionKey: "schema nesting too deep at \(name) (max 20)"])
+    }
     guard let type = node["type"] as? String else {
         let detail = node["type"] == nil ? "missing 'type'" : "malformed 'type'"
         throw NSError(
@@ -303,22 +309,26 @@ private func buildDynamicSchema(_ node: [String: Any], _ name: String) throws ->
         }
         // required に挙げたが properties に無いキーは、サイレントに optional 化されて
         // 必須フィールド欠落を「適合」と扱ってしまうため拒否する（typo 検出）。
-        let missingRequired = Set(required).subtracting(props.keys)
+        // requiredSet は missingRequired と isOptional 判定で使い回す（O(n*m) を避ける）。
+        let requiredSet = Set(required)
+        let missingRequired = requiredSet.subtracting(props.keys)
         if let key = missingRequired.sorted().first {
             throw NSError(
                 domain: "rintel.schema", code: 8,
                 userInfo: [NSLocalizedDescriptionKey:
                     "required property '\(key)' missing from 'properties' at \(name)"])
         }
+        // Swift の Dictionary は反復順が非決定的なため、キー順でソートして
+        // 生成スキーマのプロパティ順を安定させる（スナップショット比較などのため）。
         var properties: [DynamicGenerationSchema.Property] = []
-        for (key, child) in props {
-            let childSchema = try buildDynamicSchema(child, "\(name)_\(key)")
+        for (key, child) in props.sorted(by: { $0.key < $1.key }) {
+            let childSchema = try buildDynamicSchema(child, "\(name)_\(key)", depth: depth + 1)
             properties.append(
                 DynamicGenerationSchema.Property(
                     name: key,
                     description: try stringOrNil(child["description"], "description", "\(name)_\(key)"),
                     schema: childSchema,
-                    isOptional: !required.contains(key)
+                    isOptional: !requiredSet.contains(key)
                 )
             )
         }
@@ -334,11 +344,29 @@ private func buildDynamicSchema(_ node: [String: Any], _ name: String) throws ->
                 domain: "rintel.schema", code: 2,
                 userInfo: [NSLocalizedDescriptionKey: "\(detail) at \(name)"])
         }
-        let itemSchema = try buildDynamicSchema(items, "\(name)_item")
+        let itemSchema = try buildDynamicSchema(items, "\(name)_item", depth: depth + 1)
+        // 負数や minItems > maxItems は GenerationSchema 構築まで進ませず invalid_schema で弾く。
+        let minItems = try intOrNil(node["minItems"], "minItems", name)
+        let maxItems = try intOrNil(node["maxItems"], "maxItems", name)
+        if let minItems, minItems < 0 {
+            throw NSError(
+                domain: "rintel.schema", code: 10,
+                userInfo: [NSLocalizedDescriptionKey: "'minItems' must be non-negative at \(name)"])
+        }
+        if let maxItems, maxItems < 0 {
+            throw NSError(
+                domain: "rintel.schema", code: 10,
+                userInfo: [NSLocalizedDescriptionKey: "'maxItems' must be non-negative at \(name)"])
+        }
+        if let minItems, let maxItems, minItems > maxItems {
+            throw NSError(
+                domain: "rintel.schema", code: 10,
+                userInfo: [NSLocalizedDescriptionKey: "'minItems' exceeds 'maxItems' at \(name)"])
+        }
         return DynamicGenerationSchema(
             arrayOf: itemSchema,
-            minimumElements: try intOrNil(node["minItems"], "minItems", name),
-            maximumElements: try intOrNil(node["maxItems"], "maxItems", name)
+            minimumElements: minItems,
+            maximumElements: maxItems
         )
     case "string":
         return DynamicGenerationSchema(type: String.self)

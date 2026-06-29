@@ -79,7 +79,7 @@ fn main() -> anyhow::Result<()> {
             schema,
         } => {
             if !provider.is_available() {
-                eprintln!("Warning: Apple Intelligence is not available on this system.");
+                anyhow::bail!("Apple Intelligence is not available on this system.");
             }
             let file_refs: Vec<&std::path::Path> = file.iter().map(PathBuf::as_path).collect();
             commands::ask::run(

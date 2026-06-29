@@ -36,11 +36,15 @@ impl AiProvider for AppleIntelligenceProvider {
 
         let has_history = request.messages.len() > 1;
 
-        // response_schema が設定されていれば常にシングルターンの構造化生成として扱い、
-        // 会話履歴は build_single_prompt で 1 プロンプトに平坦化される（履歴は再生されない）。
-        // マルチターンのフリーテキスト生成はスキーマ未設定のときだけ適用される。
+        // 構造化生成はシングルターン専用。履歴付きで schema を渡されたら平坦化して黙って
+        // 履歴を捨てるのではなく、明示的に拒否する（マルチターンは ai_generate_with_history
+        // 経由で履歴を再現すべき、というリポジトリ規約に沿う）。
         let result = if let Some(schema) = request.response_schema.as_deref() {
-            generate_structured(request, schema)
+            if has_history {
+                Err("structured generation only supports single-turn requests".to_string())
+            } else {
+                generate_structured(request, schema)
+            }
         } else if has_history {
             generate_multi_turn(request)
         } else {
