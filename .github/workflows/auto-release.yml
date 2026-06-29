@@ -33,3 +33,54 @@ jobs:
       tag_prefix: v
       force_released_output: ${{ github.event_name == 'workflow_dispatch' }}
     secrets: inherit
+
+  # Apple Intelligence (FoundationModels) is Apple Silicon + macOS 26 only, so we
+  # ship a single aarch64 binary built on macos-26 (its default Xcode 26 provides
+  # the macOS 26 SDK; without it FoundationModels is compiled out with no build
+  # error, leaving a binary that reports unsupported_sdk at runtime). mise consumes
+  # this via the github backend.
+  upload-binary:
+    needs: create-release
+    if: needs.create-release.outputs.released == 'true'
+    permissions:
+      contents: write
+    runs-on: macos-26
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          persist-credentials: false
+      - uses: dtolnay/rust-toolchain@efa25f7f19611383d5b0ccf2d1c8914531636bf9 # stable
+        with:
+          toolchain: stable
+          targets: aarch64-apple-darwin
+      - uses: Swatinem/rust-cache@e18b497796c12c097a38f9edb9d0641fb99eee32 # v2
+        with:
+          key: aarch64-apple-darwin
+      - name: Verify macOS 26+ SDK (required for FoundationModels)
+        run: |
+          sdk=$(xcrun --sdk macosx --show-sdk-version)
+          echo "macOS SDK: $sdk"
+          # Accept macOS 26 and any higher major (27-99) so the gate ages forward.
+          case "$sdk" in
+            26.*|2[7-9].*|[3-9][0-9].*) ;;
+            *) echo "::error::macOS 26+ SDK required for FoundationModels (got $sdk)"; exit 1 ;;
+          esac
+      - name: Build
+        # Only the CLI is shipped. Building the whole workspace would also compile
+        # the Tauri GUI crate, which needs the pnpm-built frontend dist (absent in CI).
+        run: cargo build --release --locked --target aarch64-apple-darwin -p rintel-cli
+      - name: Package
+        env:
+          TAG: ${{ needs.create-release.outputs.tag }}
+        run: |
+          tar czf "rintel-${TAG}-aarch64-apple-darwin.tar.gz" \
+            -C target/aarch64-apple-darwin/release rintel
+      - name: Upload to release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ needs.create-release.outputs.tag }}
+        run: |
+          gh release upload "${TAG}" \
+            "rintel-${TAG}-aarch64-apple-darwin.tar.gz" \
+            --clobber
