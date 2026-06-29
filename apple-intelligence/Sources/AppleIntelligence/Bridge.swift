@@ -217,22 +217,30 @@ private func stringOrNil(_ value: Any?, _ key: String, _ name: String) throws ->
     return stringValue
 }
 
-/// DynamicGenerationSchema に変換できず enforcement もできない制約キーワード。
-/// これらを素通りさせると非適合 JSON を「適合」として返しかねないため拒否する
-/// （annotation 系の title/$schema/$id/default/examples 等は制約ではないので含めない）。
-private let unsupportedSchemaConstraintKeys: Set<String> = [
-    "enum", "const",
-    "oneOf", "anyOf", "allOf", "not",
-    "minLength", "maxLength", "pattern", "format",
-    "minimum", "maximum", "exclusiveMinimum", "exclusiveMaximum", "multipleOf",
-    "additionalProperties", "minProperties", "maxProperties",
-    "uniqueItems", "contains", "prefixItems", "$ref",
+/// buildDynamicSchema が解釈・enforcement できる構造キーワード（型ごとに使うものの和集合）。
+private let recognizedSchemaKeys: Set<String> = [
+    "type", "description",
+    "properties", "required",
+    "items", "minItems", "maxItems",
 ]
 
-/// 未対応の制約キーワードが含まれていれば invalid_schema として弾く。
+/// 制約を持たない annotation キーワード。無視しても適合性に影響しないため許可する。
+private let allowedAnnotationKeys: Set<String> = [
+    "title", "$schema", "$id", "$comment",
+    "default", "examples", "readOnly", "writeOnly", "deprecated",
+]
+
+/// 解釈も enforcement もできないキーワードが含まれていれば invalid_schema として弾く。
+///
+/// denylist ではなく allowlist 方式: 認識する構造キーと無害な annotation 以外はすべて拒否する。
+/// enum/minimum/pattern だけでなく if/then/else・dependentRequired・patternProperties など
+/// JSON Schema の制約キーワードを列挙し続けなくても、未対応制約の取りこぼしを恒久的に防げる
+/// （素通りさせると非適合 JSON を「適合」として返しかねないため）。
 private func rejectUnsupportedSchemaConstraints(_ node: [String: Any], _ name: String) throws {
-    let present = unsupportedSchemaConstraintKeys.intersection(node.keys)
-    if let key = present.sorted().first {
+    let unknown = Set(node.keys)
+        .subtracting(recognizedSchemaKeys)
+        .subtracting(allowedAnnotationKeys)
+    if let key = unknown.sorted().first {
         throw NSError(
             domain: "rintel.schema", code: 7,
             userInfo: [NSLocalizedDescriptionKey: "unsupported '\(key)' at \(name)"])
@@ -243,8 +251,8 @@ private func rejectUnsupportedSchemaConstraints(_ node: [String: Any], _ name: S
 ///
 /// 対応する型: object (properties/required), array (items/minItems/maxItems),
 /// string, integer, number, boolean。description は object ノード自身と各プロパティに付与される。
-/// enum・minimum・pattern など enforcement できない制約キーワードは黙って無視せず
-/// invalid_schema として拒否する（unsupportedSchemaConstraintKeys 参照）。
+/// enforcement できない制約キーワード（enum/minimum/pattern/if など）は allowlist 方式で
+/// 黙って無視せず invalid_schema として拒否する（rejectUnsupportedSchemaConstraints 参照）。
 @available(macOS 26.0, *)
 private func buildDynamicSchema(_ node: [String: Any], _ name: String) throws -> DynamicGenerationSchema {
     guard let type = node["type"] as? String else {
