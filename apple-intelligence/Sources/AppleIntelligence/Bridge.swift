@@ -221,18 +221,23 @@ private func stringOrNil(_ value: Any?, _ key: String, _ name: String) throws ->
 ///
 /// 型ごとに分けるのが肝心。和集合で許可すると `{"type":"string","minItems":3}` のように
 /// 別の型に属するキーが通過して黙って無視され、非適合 JSON を「適合」として返しかねない。
+/// description はここには含めない（全型で必ず enforce されるわけではなく、object ノード自身と
+/// プロパティでのみ付与される best-effort な annotation なので allowedAnnotationKeys 側で許可する）。
 private func recognizedSchemaKeys(for type: String) -> Set<String> {
     switch type {
-    case "object": return ["type", "description", "properties", "required"]
-    case "array": return ["type", "description", "items", "minItems", "maxItems"]
-    default: return ["type", "description"]  // string / integer / number / boolean
+    case "object": return ["type", "properties", "required"]
+    case "array": return ["type", "items", "minItems", "maxItems"]
+    default: return ["type"]  // string / integer / number / boolean
     }
 }
 
-/// 制約を持たない annotation キーワード。無視しても適合性に影響しないため許可する。
-/// additionalProperties は閉じたオブジェクト（= 宣言済みプロパティのみ）が生成器の構造上
-/// 既に満たされるため、ここに含めて無視する（多くのスキーマ生成器が常時付与するため）。
+/// 適合性に影響しない、または無視しても安全な annotation キーワード。全型で許可する。
+/// - description: object ノード自身とプロパティでのみ付与される best-effort なヒント
+///   （array/scalar ノードでは無視される。意味的制約ではないため適合性に影響しない）。
+/// - additionalProperties: 閉じたオブジェクト（= 宣言済みプロパティのみ）が生成器の構造上
+///   既に満たされるため無視する（多くのスキーマ生成器が常時付与するため）。
 private let allowedAnnotationKeys: Set<String> = [
+    "description",
     "title", "$schema", "$id", "$comment",
     "default", "examples", "readOnly", "writeOnly", "deprecated",
     "additionalProperties",
