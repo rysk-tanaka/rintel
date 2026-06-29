@@ -217,28 +217,36 @@ private func stringOrNil(_ value: Any?, _ key: String, _ name: String) throws ->
     return stringValue
 }
 
-/// buildDynamicSchema が解釈・enforcement できる構造キーワード（型ごとに使うものの和集合）。
-private let recognizedSchemaKeys: Set<String> = [
-    "type", "description",
-    "properties", "required",
-    "items", "minItems", "maxItems",
-]
+/// その型の buildDynamicSchema が実際に解釈・enforcement する構造キーワード。
+///
+/// 型ごとに分けるのが肝心。和集合で許可すると `{"type":"string","minItems":3}` のように
+/// 別の型に属するキーが通過して黙って無視され、非適合 JSON を「適合」として返しかねない。
+private func recognizedSchemaKeys(for type: String) -> Set<String> {
+    switch type {
+    case "object": return ["type", "description", "properties", "required"]
+    case "array": return ["type", "description", "items", "minItems", "maxItems"]
+    default: return ["type", "description"]  // string / integer / number / boolean
+    }
+}
 
 /// 制約を持たない annotation キーワード。無視しても適合性に影響しないため許可する。
+/// additionalProperties は閉じたオブジェクト（= 宣言済みプロパティのみ）が生成器の構造上
+/// 既に満たされるため、ここに含めて無視する（多くのスキーマ生成器が常時付与するため）。
 private let allowedAnnotationKeys: Set<String> = [
     "title", "$schema", "$id", "$comment",
     "default", "examples", "readOnly", "writeOnly", "deprecated",
+    "additionalProperties",
 ]
 
-/// 解釈も enforcement もできないキーワードが含まれていれば invalid_schema として弾く。
+/// その型で解釈も enforcement もできないキーワードが含まれていれば invalid_schema として弾く。
 ///
-/// denylist ではなく allowlist 方式: 認識する構造キーと無害な annotation 以外はすべて拒否する。
-/// enum/minimum/pattern だけでなく if/then/else・dependentRequired・patternProperties など
-/// JSON Schema の制約キーワードを列挙し続けなくても、未対応制約の取りこぼしを恒久的に防げる
-/// （素通りさせると非適合 JSON を「適合」として返しかねないため）。
-private func rejectUnsupportedSchemaConstraints(_ node: [String: Any], _ name: String) throws {
+/// denylist ではなく allowlist 方式: 型ごとの認識キーと無害な annotation 以外はすべて拒否する。
+/// enum/minimum/pattern だけでなく if/then/else・dependentRequired・patternProperties や
+/// 型違いの構造キー（string の minItems 等）も、JSON Schema のキーワードを列挙し続けなくても
+/// 恒久的に取りこぼさない（素通りさせると非適合 JSON を「適合」として返しかねないため）。
+private func rejectUnsupportedSchemaConstraints(_ node: [String: Any], _ type: String, _ name: String) throws {
     let unknown = Set(node.keys)
-        .subtracting(recognizedSchemaKeys)
+        .subtracting(recognizedSchemaKeys(for: type))
         .subtracting(allowedAnnotationKeys)
     if let key = unknown.sorted().first {
         throw NSError(
@@ -261,7 +269,7 @@ private func buildDynamicSchema(_ node: [String: Any], _ name: String) throws ->
             domain: "rintel.schema", code: 1,
             userInfo: [NSLocalizedDescriptionKey: "\(detail) at \(name)"])
     }
-    try rejectUnsupportedSchemaConstraints(node, name)
+    try rejectUnsupportedSchemaConstraints(node, type, name)
     switch type {
     case "object":
         // present-but-wrong-type は invalid_schema として弾く。キー不在のときだけ既定値に倒す
