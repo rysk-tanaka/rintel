@@ -217,11 +217,34 @@ private func stringOrNil(_ value: Any?, _ key: String, _ name: String) throws ->
     return stringValue
 }
 
+/// DynamicGenerationSchema に変換できず enforcement もできない制約キーワード。
+/// これらを素通りさせると非適合 JSON を「適合」として返しかねないため拒否する
+/// （annotation 系の title/$schema/$id/default/examples 等は制約ではないので含めない）。
+private let unsupportedSchemaConstraintKeys: Set<String> = [
+    "enum", "const",
+    "oneOf", "anyOf", "allOf", "not",
+    "minLength", "maxLength", "pattern", "format",
+    "minimum", "maximum", "exclusiveMinimum", "exclusiveMaximum", "multipleOf",
+    "additionalProperties", "minProperties", "maxProperties",
+    "uniqueItems", "contains", "prefixItems", "$ref",
+]
+
+/// 未対応の制約キーワードが含まれていれば invalid_schema として弾く。
+private func rejectUnsupportedSchemaConstraints(_ node: [String: Any], _ name: String) throws {
+    let present = unsupportedSchemaConstraintKeys.intersection(node.keys)
+    if let key = present.sorted().first {
+        throw NSError(
+            domain: "rintel.schema", code: 7,
+            userInfo: [NSLocalizedDescriptionKey: "unsupported '\(key)' at \(name)"])
+    }
+}
+
 /// JSON Schema (subset) を DynamicGenerationSchema に変換する。
 ///
 /// 対応する型: object (properties/required), array (items/minItems/maxItems),
 /// string, integer, number, boolean。description は object ノード自身と各プロパティに付与される。
-/// enum など非対応の制約キーワードは黙って無視せず invalid_schema として拒否する。
+/// enum・minimum・pattern など enforcement できない制約キーワードは黙って無視せず
+/// invalid_schema として拒否する（unsupportedSchemaConstraintKeys 参照）。
 @available(macOS 26.0, *)
 private func buildDynamicSchema(_ node: [String: Any], _ name: String) throws -> DynamicGenerationSchema {
     guard let type = node["type"] as? String else {
@@ -230,12 +253,7 @@ private func buildDynamicSchema(_ node: [String: Any], _ name: String) throws ->
             domain: "rintel.schema", code: 1,
             userInfo: [NSLocalizedDescriptionKey: "\(detail) at \(name)"])
     }
-    // 制約を honor できない enum を素通りさせると非適合 JSON を「適合」として返しかねないため拒否する。
-    if node["enum"] != nil {
-        throw NSError(
-            domain: "rintel.schema", code: 7,
-            userInfo: [NSLocalizedDescriptionKey: "unsupported 'enum' at \(name)"])
-    }
+    try rejectUnsupportedSchemaConstraints(node, name)
     switch type {
     case "object":
         // present-but-wrong-type は invalid_schema として弾く。キー不在のときだけ既定値に倒す
@@ -261,6 +279,15 @@ private func buildDynamicSchema(_ node: [String: Any], _ name: String) throws ->
             required = typed
         } else {
             required = []
+        }
+        // required に挙げたが properties に無いキーは、サイレントに optional 化されて
+        // 必須フィールド欠落を「適合」と扱ってしまうため拒否する（typo 検出）。
+        let missingRequired = Set(required).subtracting(props.keys)
+        if let key = missingRequired.sorted().first {
+            throw NSError(
+                domain: "rintel.schema", code: 8,
+                userInfo: [NSLocalizedDescriptionKey:
+                    "required property '\(key)' missing from 'properties' at \(name)"])
         }
         var properties: [DynamicGenerationSchema.Property] = []
         for (key, child) in props {
