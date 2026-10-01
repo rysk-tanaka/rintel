@@ -7,6 +7,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 Apple Intelligence（Foundation Models）を Rust から呼び出す AI チャットツール。
 CLI（clap + rustyline）と GUI（Tauri v2 + React）の 2 つのフロントエンドを持つ。
 `swift-rs` で Rust ↔ Swift FFI を実現し、macOS 26+ のオンデバイス AI を利用する。
+CLI では LM Studio（OpenAI 互換 API）のローカル LLM も `--provider lm-studio` で選べる。
 
 ## 開発コマンド
 
@@ -19,6 +20,7 @@ cargo test -p ai-provider           # プロバイダテスト
 cargo test -p ai-session            # セッションテスト
 cargo test -p ai-session -- persistence::tests::save_and_load_roundtrip  # 特定テスト
 cargo run -p rintel-cli -- ask "Hello"   # CLI 実行
+cargo run -p rintel-cli -- ask --provider lm-studio "Hello"   # LM Studio で実行（LM_API_URL 等が必要）
 cargo update-licenses              # THIRD_PARTY_LICENSES.html 再生成（要: cargo-about）
 
 # GUI（apps/gui/ で実行）
@@ -37,7 +39,7 @@ pnpm exec tsc --noEmit -p tsconfig.app.json  # TypeScript 型チェック
 
 | Crate | 責務 |
 | --- | --- |
-| `ai-provider` | `AiProvider` trait 定義、Apple Intelligence FFI ブリッジ、非 macOS スタブ |
+| `ai-provider` | `AiProvider` trait 定義、Apple Intelligence FFI ブリッジ、LM Studio プロバイダ、プロバイダ選択（`ProviderSpec`）、非 macOS スタブ |
 | `ai-session` | `Session`（会話状態）、`SessionManager`（JSON 永続化）、`SessionConfig`（TTL・保存先） |
 | `rintel-cli` | clap サブコマンド（ask / chat / session）、rustyline REPL |
 | `rintel-gui` | Tauri コマンド層（AppState → ai-provider/ai-session 呼び出し）、React フロントエンド |
@@ -53,6 +55,14 @@ pnpm exec tsc --noEmit -p tsconfig.app.json  # TypeScript 型チェック
 
 `ai-provider` は `#[cfg(target_os = "macos")]` で Apple Intelligence 実装と非 macOS スタブを切り替える。
 スタブは `is_available() → false` を返すだけで、ビルドは通る。
+LM Studio プロバイダ（`ai-provider/src/lmstudio/`）は cfg なしで全 OS でビルドされる。
+
+### LM Studio プロバイダ
+
+- 接続設定は rysk-tanaka/skills と共通の `LM_API_URL` / `LM_API_TOKEN` / `LM_API_TOKEN_COMMAND`。サーバー停止時に secret store のロック解除を求めないよう、トークンは疎通確認の後に解決する
+- TLS 機能が引き込む webpki-roots の CDLA-Permissive-2.0 は `about.toml` の許可リスト外のため、`ureq` の TLS は無効にしている。`LM_API_URL` は `http://` のみ
+- プロバイダの選択規則は `ai-provider/src/select.rs` に集約。新規はフラグ → 環境変数 → 既定の順、再開時はセッションの記録値を使う
+- CLI と GUI はセッションの保存先を共有するため、セッションは `provider` / `model` を記録し、`Session::send()` が不一致を拒否する
 
 ### SwiftLinker
 
@@ -105,7 +115,8 @@ pnpm exec tsc --noEmit -p tsconfig.app.json  # TypeScript 型チェック
 
 ## テスト方針
 
-- `ai-provider`: プロバイダの可用性テスト（FFI 非依存）
+- `ai-provider`: プロバイダの可用性テスト（FFI 非依存）、LM Studio はモック HTTP サーバー相手の結合テスト（`lmstudio/tests.rs`）
+- edition 2024 では `std::env::set_var` が unsafe なため、LM Studio の設定は環境変数を書き換えず `LmStudioConfig::from_lookup` で注入する。実際の LM Studio / secret store は呼ばない
 - `ai-session`: Session のメッセージ管理、SessionManager の CRUD・TTL テスト
 - テスト内のファイルシステム操作には `tempfile` を使用
 - CLI / GUI のコマンド層は E2E で担保

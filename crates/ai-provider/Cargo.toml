@@ -9,9 +9,15 @@ serde.workspace = true
 serde_json.workspace = true
 chrono.workspace = true
 thiserror.workspace = true
+# Plain HTTP only. LM Studio listens on HTTP, and ureq's TLS features pull in
+# webpki-roots, whose CDLA-Permissive-2.0 license is not accepted in about.toml.
+ureq = { version = "3", default-features = false }
 
 [target.'cfg(target_os = "macos")'.dependencies]
 swift-rs = "1"
 
 [build-dependencies]
 swift-rs = { version = "1", features = ["build"] }
+
+[dev-dependencies]
+tempfile = "3"

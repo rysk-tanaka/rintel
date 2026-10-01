@@ -1,14 +1,15 @@
 use std::path::Path;
 
-use ai_provider::provider::AiProvider;
 use ai_session::{Session, SessionConfig, SessionManager};
 use anyhow::Result;
 use colored::Colorize;
 use rustyline::DefaultEditor;
 
+use crate::ProviderArgs;
+
 /// 対話チャット REPL を開始する
 pub fn run(
-    provider: &dyn AiProvider,
+    provider_args: &ProviderArgs,
     system: Option<&str>,
     files: &[&Path],
     resume: Option<&str>,
@@ -16,12 +17,24 @@ pub fn run(
     let config = SessionConfig::default();
     let manager = SessionManager::new(&config.storage_dir)?;
 
-    let mut session = if let Some(prefix) = resume {
-        let id = manager.resolve_prefix(prefix)?;
-        let s = manager.load(&id)?;
-        if s.is_expired() {
-            anyhow::bail!("session {} has expired", s.id);
-        }
+    let resumed = resume
+        .map(|prefix| -> Result<Session> {
+            let id = manager.resolve_prefix(prefix)?;
+            let s = manager.load(&id)?;
+            if s.is_expired() {
+                anyhow::bail!("session {} has expired", s.id);
+            }
+            Ok(s)
+        })
+        .transpose()?;
+
+    // 別のモデルで会話を続けないよう、再開時はセッションに記録されたプロバイダで続ける
+    let recorded = resumed
+        .as_ref()
+        .map(|s| (s.provider_name(), s.model.as_deref()));
+    let provider = provider_args.connect(recorded)?;
+
+    let mut session = if let Some(s) = resumed {
         eprintln!(
             "{}",
             format!(
@@ -48,7 +61,7 @@ pub fn run(
         s
     } else {
         let ttl_secs = config.default_ttl.map(|d| d.as_secs());
-        let mut s = Session::new(system.map(String::from), ttl_secs);
+        let mut s = Session::new(system.map(String::from), ttl_secs, provider.as_ref());
 
         for path in files {
             s.add_file_context(path)?;
@@ -60,8 +73,9 @@ pub fn run(
     eprintln!(
         "{}",
         format!(
-            "Session: {} | Type /help for commands, /quit to exit",
-            &session.id.to_string()[..8]
+            "Session: {} | {} | Type /help for commands, /quit to exit",
+            &session.id.to_string()[..8],
+            session.provider_label()
         )
         .dimmed()
     );
@@ -96,7 +110,7 @@ pub fn run(
 
                 let _ = rl.add_history_entry(&line);
 
-                match session.send(provider, trimmed) {
+                match session.send(provider.as_ref(), trimmed) {
                     Ok(response) => {
                         println!("\n{}  {}\n", "AI:".bold().cyan(), response);
                     }
@@ -162,6 +176,7 @@ fn handle_command(
         }
         "/info" => {
             eprintln!("  Session:  {}", session.id);
+            eprintln!("  Provider: {}", session.provider_label());
             eprintln!("  Messages: {}", session.messages.len());
             if let Some(system) = &session.system_prompt {
                 eprintln!("  System:   {system}");
