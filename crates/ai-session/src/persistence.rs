@@ -14,6 +14,8 @@ pub struct SessionSummary {
     pub last_active: DateTime<Utc>,
     pub message_count: usize,
     pub expired: bool,
+    /// 表示用のプロバイダ名（例: `lm-studio (qwen/qwen3.6-35b-a3b)`）
+    pub provider: String,
 }
 
 /// セッションの保存・読み込み・削除を管理する
@@ -44,6 +46,7 @@ impl SessionManager {
                 && let Ok(session) = self.load_from_path(&path)
             {
                 let expired = session.is_expired();
+                let provider = session.provider_label();
                 summaries.push(SessionSummary {
                     id: session.id,
                     title: session.title,
@@ -51,6 +54,7 @@ impl SessionManager {
                     last_active: session.last_active,
                     message_count: session.messages.len(),
                     expired,
+                    provider,
                 });
             }
         }
@@ -127,14 +131,21 @@ impl SessionManager {
 
 #[cfg(test)]
 mod tests {
+    use ai_provider::APPLE_INTELLIGENCE;
+
     use super::*;
+    use crate::test_support::MockProvider;
 
     #[test]
     fn save_and_load_roundtrip() {
         let dir = tempfile::tempdir().unwrap();
         let manager = SessionManager::new(dir.path()).unwrap();
 
-        let session = Session::new(Some("test".to_string()), Some(3600));
+        let session = Session::new(
+            Some("test".to_string()),
+            Some(3600),
+            &MockProvider::default(),
+        );
         manager.save(&session).unwrap();
 
         let loaded = manager.load(&session.id).unwrap();
@@ -143,12 +154,58 @@ mod tests {
     }
 
     #[test]
+    fn provider_and_model_survive_roundtrip() {
+        let dir = tempfile::tempdir().unwrap();
+        let manager = SessionManager::new(dir.path()).unwrap();
+
+        let provider = MockProvider::new("lm-studio", Some("test/model"));
+        let session = Session::new(None, None, &provider);
+        manager.save(&session).unwrap();
+
+        let loaded = manager.load(&session.id).unwrap();
+        assert_eq!(loaded.provider.as_deref(), Some("lm-studio"));
+        assert_eq!(loaded.model.as_deref(), Some("test/model"));
+        assert_eq!(
+            manager.list().unwrap()[0].provider,
+            "lm-studio (test/model)"
+        );
+    }
+
+    #[test]
+    fn legacy_session_without_provider_loads_as_apple() {
+        let dir = tempfile::tempdir().unwrap();
+        let manager = SessionManager::new(dir.path()).unwrap();
+
+        // provider / model を記録する前のバージョンが保存した形式
+        let id = Uuid::new_v4();
+        let legacy = format!(
+            r#"{{
+                "id": "{id}",
+                "title": null,
+                "created_at": "2026-01-01T00:00:00Z",
+                "last_active": "2026-01-01T00:00:00Z",
+                "ttl_secs": null,
+                "system_prompt": null,
+                "messages": [{{"role": "user", "content": "hi"}}],
+                "file_contexts": []
+            }}"#
+        );
+        std::fs::write(dir.path().join(format!("{id}.json")), legacy).unwrap();
+
+        let loaded = manager.load(&id).unwrap();
+        assert_eq!(loaded.provider, None);
+        assert_eq!(loaded.model, None);
+        assert_eq!(loaded.provider_name(), APPLE_INTELLIGENCE);
+        assert_eq!(manager.list().unwrap()[0].provider, APPLE_INTELLIGENCE);
+    }
+
+    #[test]
     fn list_returns_sessions_sorted() {
         let dir = tempfile::tempdir().unwrap();
         let manager = SessionManager::new(dir.path()).unwrap();
 
-        let s1 = Session::new(None, None);
-        let mut s2 = Session::new(None, None);
+        let s1 = Session::new(None, None, &MockProvider::default());
+        let mut s2 = Session::new(None, None, &MockProvider::default());
         s2.last_active = s1.last_active + chrono::Duration::seconds(10);
 
         manager.save(&s1).unwrap();
@@ -164,7 +221,7 @@ mod tests {
         let dir = tempfile::tempdir().unwrap();
         let manager = SessionManager::new(dir.path()).unwrap();
 
-        let session = Session::new(None, None);
+        let session = Session::new(None, None, &MockProvider::default());
         manager.save(&session).unwrap();
         manager.delete(&session.id).unwrap();
 
@@ -176,8 +233,8 @@ mod tests {
         let dir = tempfile::tempdir().unwrap();
         let manager = SessionManager::new(dir.path()).unwrap();
 
-        let active = Session::new(None, Some(3600));
-        let mut expired = Session::new(None, Some(1));
+        let active = Session::new(None, Some(3600), &MockProvider::default());
+        let mut expired = Session::new(None, Some(1), &MockProvider::default());
         expired.last_active = Utc::now() - chrono::Duration::seconds(100);
 
         manager.save(&active).unwrap();

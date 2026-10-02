@@ -20,11 +20,15 @@ impl Default for AppleIntelligenceProvider {
 
 impl AiProvider for AppleIntelligenceProvider {
     fn name(&self) -> &str {
-        "apple-intelligence"
+        crate::APPLE_INTELLIGENCE
     }
 
     fn is_available(&self) -> bool {
         false
+    }
+
+    fn unavailable_message(&self) -> String {
+        "Apple Intelligence is not available on this system.".to_string()
     }
 
     fn generate(&self, _request: &GenerateRequest) -> Result<GenerateResponse, ProviderError> {

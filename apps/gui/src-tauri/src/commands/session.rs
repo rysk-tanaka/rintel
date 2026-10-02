@@ -51,7 +51,7 @@ pub fn create_session(
 ) -> Result<SessionInfoDto, String> {
     let config = SessionConfig::default();
     let ttl_secs = config.default_ttl.map(|d| d.as_secs());
-    let session = Session::new(system_prompt, ttl_secs);
+    let session = Session::new(system_prompt, ttl_secs, &state.provider);
     let id = session.id.to_string();
 
     let manager = state.session_manager.lock().map_err(|e| e.to_string())?;

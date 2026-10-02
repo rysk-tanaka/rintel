@@ -29,9 +29,10 @@ fn list(manager: &SessionManager) -> Result<()> {
         let expired = if s.expired { " [expired]" } else { "" };
         let time = s.last_active.with_timezone(&Local).format("%Y-%m-%d %H:%M");
         println!(
-            "{id}  {title}  ({msgs} msgs, {time}){expired}",
+            "{id}  {title}  ({msgs} msgs, {time}, {provider}){expired}",
             id = &s.id.to_string()[..8],
             msgs = s.message_count,
+            provider = s.provider,
         );
     }
 
@@ -42,33 +43,34 @@ fn show(manager: &SessionManager, prefix: &str) -> Result<()> {
     let id = manager.resolve_prefix(prefix)?;
     let session = manager.load(&id)?;
 
-    println!("Session: {}", session.id);
+    println!("Session:  {}", session.id);
     if let Some(title) = &session.title {
-        println!("Title:   {title}");
+        println!("Title:    {title}");
     }
     println!(
-        "Created: {}",
+        "Created:  {}",
         session
             .created_at
             .with_timezone(&Local)
             .format("%Y-%m-%d %H:%M:%S")
     );
     println!(
-        "Active:  {}",
+        "Active:   {}",
         session
             .last_active
             .with_timezone(&Local)
             .format("%Y-%m-%d %H:%M:%S")
     );
     if let Some(ttl) = session.ttl_secs {
-        println!("TTL:     {ttl}s");
+        println!("TTL:      {ttl}s");
     }
+    println!("Provider: {}", session.provider_label());
     if let Some(system) = &session.system_prompt {
-        println!("System:  {system}");
+        println!("System:   {system}");
     }
     if !session.file_contexts.is_empty() {
         println!(
-            "Files:   {}",
+            "Files:    {}",
             session
                 .file_contexts
                 .iter()
