@@ -15,5 +15,5 @@ anyhow.workspace = true
 chrono.workspace = true
 clap = { version = "4", features = ["derive"] }
 colored = "3"
-rustyline = "15"
+rustyline = "19"
 uuid.workspace = true
