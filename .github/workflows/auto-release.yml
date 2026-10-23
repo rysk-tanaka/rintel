@@ -27,7 +27,7 @@ jobs:
     needs: validate-branch
     permissions:
       contents: write
-    uses: rysk-tanaka/workflows/.github/workflows/release-on-version-change.yml@967f4b832a548ad201044c086565509a2bb6baea # main
+    uses: rysk-tanaka/workflows/.github/workflows/release-on-version-change.yml@fc378b25a49b87941e7030b05944ba16aa1629d7 # main
     with:
       version_source: cargo_toml
       tag_prefix: v
