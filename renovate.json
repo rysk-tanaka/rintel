@@ -5,6 +5,7 @@
   "labels": ["dependencies"],
   "timezone": "Asia/Tokyo",
   "schedule": ["before 9am on saturday"],
+  "lockFileMaintenance": { "enabled": true },
   "minimumReleaseAge": "3 days",
   "packageRules": [
     {
