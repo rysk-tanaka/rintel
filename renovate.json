@@ -1,17 +1,18 @@
 {
   "$schema": "https://docs.renovatebot.com/renovate-schema.json",
-  "extends": ["config:recommended", "group:allNonMajor", "helpers:pinGitHubActionDigests", ":enablePreCommit"],
-  "enabledManagers": ["npm", "cargo", "github-actions", "pre-commit"],
-  "labels": ["dependencies"],
-  "timezone": "Asia/Tokyo",
-  "schedule": ["before 9am on saturday"],
+  "extends": [
+    "github>rysk-tanaka/workflows#41caae6bf816cb53a25c1a03637b73992f6b38b1",
+    "group:allNonMajor",
+    ":enablePreCommit"
+  ],
+  "enabledManagers": ["npm", "cargo", "github-actions", "pre-commit", "custom.regex"],
   "lockFileMaintenance": { "enabled": true },
-  "minimumReleaseAge": "3 days",
   "packageRules": [
     {
+      "description": "The shared preset automerges every minor/patch update; GitHub Actions updates stay manual here",
+      "matchManagers": ["github-actions"],
       "matchUpdateTypes": ["minor", "patch"],
-      "matchManagers": ["npm", "cargo", "pre-commit"],
-      "automerge": true
+      "automerge": false
     }
   ]
 }
