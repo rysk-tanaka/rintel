@@ -7,6 +7,7 @@
   ],
   "enabledManagers": ["npm", "cargo", "github-actions", "pre-commit", "custom.regex"],
   "lockFileMaintenance": { "enabled": true },
+  "cargo": { "lockFileMaintenance": { "enabled": false } },
   "packageRules": [
     {
       "description": "The shared preset automerges every minor/patch update; GitHub Actions updates stay manual here",
