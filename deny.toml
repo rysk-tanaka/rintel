@@ -1,0 +1,17 @@
+# Checked by `cargo deny check advisories sources` in CI (.github/workflows/deny.yml).
+
+[advisories]
+# RustSec advisories. Vulnerabilities and unsound code always fail; yanked versions fail too,
+# since a yank is how a compromised release is withdrawn.
+yanked = "deny"
+# Every unmaintained crate today (proc-macro-error, pin-utils) is a transitive dependency
+# (mostly through tauri), which this repository cannot replace. Only direct dependencies fail.
+unmaintained = "workspace"
+ignore = []
+
+[sources]
+# Every dependency comes from crates.io. A git or other registry source fails until it is reviewed.
+unknown-registry = "deny"
+unknown-git = "deny"
+allow-registry = ["https://github.com/rust-lang/crates.io-index"]
+allow-git = []
