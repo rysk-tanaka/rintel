@@ -1,7 +1,7 @@
 {
   "$schema": "https://docs.renovatebot.com/renovate-schema.json",
   "extends": [
-    "github>rysk-tanaka/workflows#41caae6bf816cb53a25c1a03637b73992f6b38b1",
+    "github>rysk-tanaka/workflows#02f082fbc0a61d0a121b3ce79ecfbcfd1bc579c7",
     "group:allNonMajor",
     ":enablePreCommit"
   ],
